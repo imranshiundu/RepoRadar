@@ -286,7 +286,9 @@ function render() {
     });
 
     node.addEventListener("click", () => {
-      window.location.href = `/repo.html?id=${encodeURIComponent(item.id)}`;
+      const detailUrl = new URL("./repo.html", window.location.href);
+      detailUrl.searchParams.set("id", item.id);
+      window.location.href = detailUrl.toString();
     });
 
     els.recentsGrid.appendChild(node);

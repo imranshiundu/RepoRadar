@@ -307,7 +307,9 @@ function renderPersonalized(items) {
     card.addEventListener("click", (event) => {
       const target = event.target;
       if (target instanceof HTMLElement && target.closest("button")) return;
-      window.location.href = `/repo.html?id=${encodeURIComponent(item.id)}`;
+      const detailUrl = new URL("./repo.html", window.location.href);
+      detailUrl.searchParams.set("id", item.id);
+      window.location.href = detailUrl.toString();
     });
 
     els.personalizedGrid.appendChild(card);

@@ -1,20 +1,24 @@
 const STATIC_CACHE = "repo-radar-static-v2";
 const DATA_CACHE = "repo-radar-data-v2";
 const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/repo.html",
-  "/catalog.html",
-  "/settings.html",
-  "/styles.css",
-  "/runtime.js",
-  "/data.js",
-  "/watchlist.js",
-  "/repo.js",
-  "/dashboard.js",
-  "/settings.js",
-  "/catalog.js",
-  "/manifest.webmanifest"
+  "./",
+  "./index.html",
+  "./recents.html",
+  "./repositories.html",
+  "./repo.html",
+  "./catalog.html",
+  "./settings.html",
+  "./styles.css",
+  "./runtime.js",
+  "./data.js",
+  "./watchlist.js",
+  "./recents.js",
+  "./repositories.js",
+  "./repo.js",
+  "./dashboard.js",
+  "./settings.js",
+  "./catalog.js",
+  "./manifest.webmanifest"
 ];
 
 self.addEventListener("install", (event) => {
