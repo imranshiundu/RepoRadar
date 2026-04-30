@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RepoRadar Repositories</title>
+  <meta name="description" content="Browse trending developer repositories and projects with AI summaries and local vault settings.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="scrollable-page">
+  <header class="topbar">
+    <a class="brand" href="/index.html">
+      <span class="brand-mark">RR</span>
+      <span>
+        <strong class="brand-name">RepoRadar</strong>
+      </span>
+    </a>
+    <nav class="main-nav">
+      <a class="nav-link" href="/index.html">Dash</a>
+      <a class="nav-link active" href="/repositories.html">Repos</a>
+      <a class="nav-link" href="/catalog.html">Log</a>
+      <a class="nav-link" href="/settings.html">Set</a>
+    </nav>
+    <div class="topbar-actions">
+      <div class="status-pill" id="syncStatus">Ready</div>
+      <button class="btn btn-strong" id="refreshBtn" type="button">Sync</button>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="page-header">
+      <p class="eyebrow">Repository Catalogue</p>
+      <h1>Browse the latest live discovery across all connected sources.</h1>
+      
+      <div class="toolbar" style="margin-top: 1.5rem;">
+        <div class="chip-row">
+          <button class="chip chip-on" data-chip="all" type="button">All</button>
+          <button class="chip" data-chip="money" type="button">Money</button>
+          <button class="chip" data-chip="ai" type="button">AI</button>
+          <button class="chip" data-chip="saas" type="button">SaaS</button>
+          <button class="chip" data-chip="cli" type="button">CLI</button>
+        </div>
+        <div class="toolbar-actions" style="flex: 1; max-width: 400px;">
+          <input class="search-input" id="searchInput" type="search" placeholder="Search repositories...">
+        </div>
+      </div>
+    </section>
+
+    <div class="app-shell" style="padding: 0; height: auto; display: block;">
+      <section class="cards-grid" id="repoGrid" aria-live="polite"></section>
+    </div>
+  </main>
+
+  <template id="cardTemplate">
+    <article class="repo-card">
+      <div class="card-top">
+        <span class="source-pill"></span>
+        <span class="metric-pill"></span>
+      </div>
+      <h2 class="repo-name"></h2>
+      <p class="repo-owner"></p>
+      <p class="repo-desc"></p>
+      <div class="tag-row"></div>
+      <div class="analysis-box"></div>
+      <div class="score-row"></div>
+      <div class="meta-row"></div>
+      <div class="card-actions">
+        <button class="action-btn save-btn" type="button">Save</button>
+        <button class="action-btn queue-btn" type="button">Queue</button>
+        <button class="action-btn analyze-btn" type="button">AI</button>
+        <button class="action-btn visit-btn" type="button">Open</button>
+      </div>
+    </article>
+  </template>
+
+  <div id="modalHost"></div>
+
+  <script type="module" src="/repositories.js"></script>
+</body>
+</html>

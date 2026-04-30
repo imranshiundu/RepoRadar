@@ -241,7 +241,7 @@ function render(newCount = state.latestSnapshot?.newCount || 0) {
   els.moneyCount.textContent = String(state.items.filter((item) => (item.scores?.money || 0) >= 72).length);
   els.aiCount.textContent = String(state.items.filter((item) => item.tags?.includes("ai")).length);
 
-  renderCards(items);
+  if (els.repoGrid) renderCards(items);
   renderSourceChart(state.items);
   renderHistoryChart(state.history);
   renderFeed(state.items);

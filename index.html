@@ -17,191 +17,101 @@
       <span class="brand-mark">RR</span>
       <span>
         <strong class="brand-name">RepoRadar</strong>
-        <span class="brand-copy">discover, score, cache, revisit</span>
       </span>
     </a>
     <nav class="main-nav">
-      <a class="nav-link active" href="/index.html">Dashboard</a>
-      <a class="nav-link" href="/catalog.html">Catalog</a>
-      <a class="nav-link" href="/settings.html">Settings</a>
+      <a class="nav-link active" href="/index.html">Dash</a>
+      <a class="nav-link" href="/repositories.html">Repos</a>
+      <a class="nav-link" href="/catalog.html">Log</a>
+      <a class="nav-link" href="/settings.html">Set</a>
     </nav>
     <div class="topbar-actions">
-      <div class="status-pill" id="syncStatus">Preparing sources...</div>
-      <button class="btn" id="refreshBtn" type="button">Refresh now</button>
-      <a class="btn btn-strong" href="/settings.html">Open settings</a>
+      <div class="status-pill" id="syncStatus">Ready</div>
+      <button class="btn btn-strong" id="refreshBtn" type="button">Refresh</button>
     </div>
   </header>
 
   <main class="app-shell">
     <aside class="left-rail">
-      <section class="panel compact-panel">
-        <p class="panel-kicker">Views</p>
+      <section class="panel">
+        <p class="panel-kicker">Quick Views</p>
         <div class="stack-actions">
-          <button class="rail-action active" data-view="all" type="button">All live items <span id="allCount">0</span></button>
-          <button class="rail-action" data-view="saved" type="button">Saved locally <span id="savedCount">0</span></button>
-          <button class="rail-action" data-view="queued" type="button">Reading queue <span id="queueCount">0</span></button>
-          <button class="rail-action" data-view="money" type="button">Monetizable <span id="moneyCount">0</span></button>
-          <button class="rail-action" data-view="ai" type="button">AI / LLM <span id="aiCount">0</span></button>
+          <button class="rail-action active" data-view="all" type="button">All <span id="allCount">0</span></button>
+          <button class="rail-action" data-view="saved" type="button">Saved <span id="savedCount">0</span></button>
+          <button class="rail-action" data-view="money" type="button">Money <span id="moneyCount">0</span></button>
         </div>
       </section>
 
-      <section class="panel compact-panel">
-        <p class="panel-kicker">Sources</p>
-        <div class="stack-actions">
-          <button class="rail-action" data-view="github" type="button">GitHub</button>
-          <button class="rail-action" data-view="hn" type="button">Hacker News</button>
-          <button class="rail-action" data-view="reddit" type="button">Reddit</button>
-          <button class="rail-action" data-view="devto" type="button">Dev.to</button>
-          <button class="rail-action" data-view="npm" type="button">npm</button>
-          <button class="rail-action" data-view="producthunt" type="button">Product Hunt</button>
-        </div>
-      </section>
-
-      <section class="panel compact-panel">
-        <p class="panel-kicker">Auto mode</p>
-        <div class="small-copy" id="automationStatus">Waiting for runtime settings...</div>
+      <section class="panel">
+        <p class="panel-kicker">Top Movers</p>
+        <div id="trendingList" class="feed-list"></div>
       </section>
     </aside>
 
     <section class="content-column">
-      <section class="hero-grid">
-        <article class="hero-card">
-          <p class="eyebrow">Live discovery</p>
-          <h1>Open repo intelligence with local storage, charts, and bring-your-own API keys.</h1>
-          <p class="hero-copy">
-            Public sources refresh in the browser, Groq analysis is optional, and every sync is stored as a local catalog you can browse later like a mini database.
-          </p>
-          <div class="chip-row">
-            <button class="chip chip-on" data-chip="all" type="button">All</button>
-            <button class="chip" data-chip="money" type="button">Money</button>
-            <button class="chip" data-chip="ai" type="button">AI</button>
-            <button class="chip" data-chip="saas" type="button">SaaS</button>
-            <button class="chip" data-chip="cli" type="button">CLI</button>
-          </div>
-        </article>
-
-        <article class="panel note-panel">
-          <p class="panel-kicker">Local env vault</p>
-          <h2 class="panel-title">Keys stay in this browser by default</h2>
-          <p class="small-copy">
-            This static app cannot silently write a real <code>.env</code> file to disk, so it stores your runtime secrets in localStorage and can export a real env file snapshot for you when you want one.
-          </p>
-          <dl class="meta-list">
-            <div><dt>Runtime mode</dt><dd id="runtimeMode">Checking...</dd></div>
-            <div><dt>AI status</dt><dd id="aiStatus">Waiting...</dd></div>
-            <div><dt>Last sync</dt><dd id="lastSyncStatus">Never</dd></div>
-          </dl>
-        </article>
-      </section>
-
       <section class="stats-row">
         <article class="stat-card">
           <span class="stat-value" id="statItems">0</span>
-          <span class="stat-label">Current cards</span>
+          <span class="stat-label">Live</span>
         </article>
         <article class="stat-card">
           <span class="stat-value" id="statCatalog">0</span>
-          <span class="stat-label">Catalog rows</span>
+          <span class="stat-label">Total</span>
         </article>
         <article class="stat-card">
           <span class="stat-value" id="statSources">0</span>
-          <span class="stat-label">Active sources</span>
+          <span class="stat-label">Sources</span>
         </article>
         <article class="stat-card">
           <span class="stat-value" id="statAnalyzed">0</span>
-          <span class="stat-label">AI notes cached</span>
+          <span class="stat-label">AI Notes</span>
         </article>
         <article class="stat-card">
           <span class="stat-value" id="statNew">0</span>
-          <span class="stat-label">New this sync</span>
+          <span class="stat-label">New</span>
         </article>
       </section>
 
       <section class="chart-row">
-        <article class="panel chart-panel">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">Source mix</p>
-              <h2 class="panel-title">Where the cards are coming from</h2>
-            </div>
-          </div>
+        <article class="panel">
+          <p class="panel-kicker">Source Mix</p>
           <div id="sourceChart" class="chart-host"></div>
         </article>
-        <article class="panel chart-panel">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">Sync history</p>
-              <h2 class="panel-title">Always refreshing while the tab is open</h2>
-            </div>
-          </div>
+        <article class="panel">
+          <p class="panel-kicker">Sync History</p>
           <div id="historyChart" class="chart-host"></div>
         </article>
       </section>
 
-      <section class="toolbar">
-        <input class="search-input" id="searchInput" type="search" placeholder="Search repos, packages, posts, tags, opportunities...">
-        <div class="toolbar-actions">
-          <button class="btn" id="analyzeTopBtn" type="button">Analyze top cards</button>
-          <a class="btn" href="/catalog.html">Open database list</a>
-        </div>
-      </section>
-
-      <section class="panel list-panel">
+      <section class="panel">
         <div class="panel-head">
-          <div>
-            <p class="panel-kicker">Live feed</p>
-            <h2 class="panel-title">Recent arrivals</h2>
-          </div>
+          <p class="panel-kicker">Recent Arrivals</p>
+          <a href="/repositories.html" class="btn">View all repositories</a>
         </div>
         <div id="liveFeed" class="feed-list"></div>
       </section>
-
-      <section class="cards-grid" id="repoGrid" aria-live="polite"></section>
     </section>
 
     <aside class="right-rail">
-      <section class="panel compact-panel">
-        <p class="panel-kicker">Top movers</p>
-        <div id="trendingList" class="mini-list"></div>
+      <section class="panel">
+        <p class="panel-kicker">System State</p>
+        <dl class="meta-list">
+          <div><dt>AI</dt><dd id="aiStatus">Ready</dd></div>
+          <div><dt>Sync</dt><dd id="lastSyncStatus">Never</dd></div>
+        </dl>
       </section>
 
-      <section class="panel compact-panel">
-        <p class="panel-kicker">Source health</p>
-        <div id="sourceHealth" class="mini-list"></div>
+      <section class="panel">
+        <p class="panel-kicker">Source Health</p>
+        <div id="sourceHealth" class="feed-list"></div>
       </section>
 
-      <section class="panel compact-panel">
-        <p class="panel-kicker">Local notes</p>
-        <ul class="hint-list">
-          <li>Saved and queued statuses persist in your browser.</li>
-          <li>The catalog page stores every fetched row with first seen and last seen times.</li>
-          <li>Offline caching and periodic sync are best effort, depending on the browser.</li>
-        </ul>
+      <section class="panel">
+        <p class="panel-kicker">Auto Mode</p>
+        <div class="small-copy" id="automationStatus">Active</div>
       </section>
     </aside>
   </main>
-
-  <template id="cardTemplate">
-    <article class="repo-card">
-      <div class="card-top">
-        <span class="source-pill"></span>
-        <span class="metric-pill"></span>
-      </div>
-      <h2 class="repo-name"></h2>
-      <p class="repo-owner"></p>
-      <p class="repo-desc"></p>
-      <div class="tag-row"></div>
-      <div class="analysis-box"></div>
-      <div class="score-row"></div>
-      <div class="meta-row"></div>
-      <div class="card-actions">
-        <button class="action-btn save-btn" type="button">Save</button>
-        <button class="action-btn queue-btn" type="button">Queue</button>
-        <button class="action-btn analyze-btn" type="button">Analyze</button>
-        <button class="action-btn visit-btn" type="button">Open</button>
-      </div>
-    </article>
-  </template>
 
   <script type="module" src="/dashboard.js"></script>
 </body>
