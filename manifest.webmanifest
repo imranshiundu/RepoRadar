@@ -3,8 +3,8 @@
   "short_name": "RepoRadar",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f7f4ee",
-  "theme_color": "#bb4c1f",
-  "description": "Track trending developer repos and projects with local caching.",
+  "background_color": "#fcf8f2",
+  "theme_color": "#c45621",
+  "description": "Track trending developer repos and projects with local caching, charts, and a browser-side env vault.",
   "icons": []
 }

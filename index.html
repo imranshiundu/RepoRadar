@@ -1,170 +1,182 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RepoRadar</title>
-  <meta name="description"
-    content="Track trending repos and developer projects across GitHub, Hacker News, Reddit, and Product Hunt.">
+  <title>RepoRadar Dashboard</title>
+  <meta name="description" content="Live repo discovery dashboard with local vault settings, AI notes, charts, and cached catalog history.">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
-
 <body>
   <header class="topbar">
-    <div class="brand">
-
-      <div>
-        <div class="brand-name">RepoRadar</div>
-        <p class="brand-copy">Developer discovery with local caching and AI analysis</p>
-      </div>
-    </div>
+    <a class="brand" href="/index.html">
+      <span class="brand-mark">RR</span>
+      <span>
+        <strong class="brand-name">RepoRadar</strong>
+        <span class="brand-copy">discover, score, cache, revisit</span>
+      </span>
+    </a>
+    <nav class="main-nav">
+      <a class="nav-link active" href="/index.html">Dashboard</a>
+      <a class="nav-link" href="/catalog.html">Catalog</a>
+      <a class="nav-link" href="/settings.html">Settings</a>
+    </nav>
     <div class="topbar-actions">
-      <div class="status-pill" id="syncStatus">Waiting for first sync</div>
-      <button class="btn" id="configToggle" type="button">Settings</button>
-      <button class="btn btn-strong" id="refreshBtn" type="button">Refresh</button>
+      <div class="status-pill" id="syncStatus">Preparing sources...</div>
+      <button class="btn" id="refreshBtn" type="button">Refresh now</button>
+      <a class="btn btn-strong" href="/settings.html">Open settings</a>
     </div>
   </header>
 
-  <section class="config-panel" id="configPanel" hidden>
-    <div class="config-grid">
-      <article class="config-card">
-        <h2>Deployment</h2>
-        <p class="config-copy">
-          Secrets now live on the server through <code>.env</code>. This is safe on Vercel or local Node.
-          GitHub Pages can host the UI, but not the protected Groq proxy.
-        </p>
-        <dl class="meta-list">
-          <div>
-            <dt>AI status</dt>
-            <dd id="aiStatus">Checking server config...</dd>
-          </div>
-          <div>
-            <dt>Last cache</dt>
-            <dd id="cacheStatus">No cache yet</dd>
-          </div>
-          <div>
-            <dt>Background</dt>
-            <dd id="backgroundStatus">Best effort only</dd>
-          </div>
-        </dl>
-      </article>
-
-      <article class="config-card">
-        <h2>Sources</h2>
-        <label class="switch-row"><span>GitHub</span><input type="checkbox" data-source="github" checked></label>
-        <label class="switch-row"><span>Hacker News</span><input type="checkbox" data-source="hn" checked></label>
-        <label class="switch-row"><span>Reddit</span><input type="checkbox" data-source="reddit" checked></label>
-        <label class="switch-row"><span>Product Hunt</span><input type="checkbox" data-source="producthunt"></label>
-      </article>
-
-      <article class="config-card">
-        <h2>Automation</h2>
-        <label class="switch-row"><span>Auto analyze top cards</span><input id="autoAnalyzeToggle" type="checkbox"
-            checked></label>
-        <label class="switch-row"><span>Refresh while tab is open</span><input id="autoRefreshToggle" type="checkbox"
-            checked></label>
-        <label class="switch-row"><span>Register service worker</span><input id="offlineToggle" type="checkbox"
-            checked></label>
-        <p class="config-copy">
-          Browsers usually cannot keep a site working after the browser is fully closed.
-          I added offline caching and periodic background sync where the browser supports it.
-        </p>
-      </article>
-    </div>
-  </section>
-
-  <main class="layout">
-    <aside class="sidebar">
-      <div class="sidebar-block">
-        <div class="sidebar-label">Views</div>
-        <button class="sidebar-item active" data-view="all" type="button">All live items <span
-            id="allCount">0</span></button>
-        <button class="sidebar-item" data-view="monetizable" type="button">Monetizable <span
-            id="moneyCount">0</span></button>
-        <button class="sidebar-item" data-view="saved" type="button">Saved <span id="savedCount">0</span></button>
-        <button class="sidebar-item" data-view="ai" type="button">AI / LLM <span id="aiCount">0</span></button>
-      </div>
-
-      <div class="sidebar-block">
-        <div class="sidebar-label">Sources</div>
-        <button class="sidebar-item" data-view="github" type="button">GitHub</button>
-        <button class="sidebar-item" data-view="hn" type="button">Hacker News</button>
-        <button class="sidebar-item" data-view="reddit" type="button">Reddit</button>
-        <button class="sidebar-item" data-view="producthunt" type="button">Product Hunt</button>
-      </div>
-    </aside>
-
-    <section class="main-panel">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">Live discovery</p>
-          <h1>Trending developer projects with cached AI notes</h1>
-          <p class="hero-copy">
-            Fresh results come from public APIs, summaries are cached in your browser, and saves stay local to this
-            device.
-          </p>
-        </div>
-        <div class="hero-note">
-          <strong>Storage mode</strong>
-          <span>Repos, saved items, and AI summaries are stored in localStorage after first load.</span>
+  <main class="app-shell">
+    <aside class="left-rail">
+      <section class="panel compact-panel">
+        <p class="panel-kicker">Views</p>
+        <div class="stack-actions">
+          <button class="rail-action active" data-view="all" type="button">All live items <span id="allCount">0</span></button>
+          <button class="rail-action" data-view="saved" type="button">Saved locally <span id="savedCount">0</span></button>
+          <button class="rail-action" data-view="queued" type="button">Reading queue <span id="queueCount">0</span></button>
+          <button class="rail-action" data-view="money" type="button">Monetizable <span id="moneyCount">0</span></button>
+          <button class="rail-action" data-view="ai" type="button">AI / LLM <span id="aiCount">0</span></button>
         </div>
       </section>
 
-      <section class="stats" id="statsRow">
-        <article class="stat-card"><span class="stat-value" id="statItems">0</span><span class="stat-label">Items
-            loaded</span></article>
-        <article class="stat-card"><span class="stat-value" id="statSources">0</span><span class="stat-label">Active
-            sources</span></article>
-        <article class="stat-card"><span class="stat-value" id="statAnalyzed">0</span><span class="stat-label">AI
-            summaries</span></article>
-        <article class="stat-card"><span class="stat-value" id="statSaved">0</span><span class="stat-label">Saved
-            locally</span></article>
+      <section class="panel compact-panel">
+        <p class="panel-kicker">Sources</p>
+        <div class="stack-actions">
+          <button class="rail-action" data-view="github" type="button">GitHub</button>
+          <button class="rail-action" data-view="hn" type="button">Hacker News</button>
+          <button class="rail-action" data-view="reddit" type="button">Reddit</button>
+          <button class="rail-action" data-view="devto" type="button">Dev.to</button>
+          <button class="rail-action" data-view="npm" type="button">npm</button>
+          <button class="rail-action" data-view="producthunt" type="button">Product Hunt</button>
+        </div>
+      </section>
+
+      <section class="panel compact-panel">
+        <p class="panel-kicker">Auto mode</p>
+        <div class="small-copy" id="automationStatus">Waiting for runtime settings...</div>
+      </section>
+    </aside>
+
+    <section class="content-column">
+      <section class="hero-grid">
+        <article class="hero-card">
+          <p class="eyebrow">Live discovery</p>
+          <h1>Open repo intelligence with local storage, charts, and bring-your-own API keys.</h1>
+          <p class="hero-copy">
+            Public sources refresh in the browser, Groq analysis is optional, and every sync is stored as a local catalog you can browse later like a mini database.
+          </p>
+          <div class="chip-row">
+            <button class="chip chip-on" data-chip="all" type="button">All</button>
+            <button class="chip" data-chip="money" type="button">Money</button>
+            <button class="chip" data-chip="ai" type="button">AI</button>
+            <button class="chip" data-chip="saas" type="button">SaaS</button>
+            <button class="chip" data-chip="cli" type="button">CLI</button>
+          </div>
+        </article>
+
+        <article class="panel note-panel">
+          <p class="panel-kicker">Local env vault</p>
+          <h2 class="panel-title">Keys stay in this browser by default</h2>
+          <p class="small-copy">
+            This static app cannot silently write a real <code>.env</code> file to disk, so it stores your runtime secrets in localStorage and can export a real env file snapshot for you when you want one.
+          </p>
+          <dl class="meta-list">
+            <div><dt>Runtime mode</dt><dd id="runtimeMode">Checking...</dd></div>
+            <div><dt>AI status</dt><dd id="aiStatus">Waiting...</dd></div>
+            <div><dt>Last sync</dt><dd id="lastSyncStatus">Never</dd></div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="stats-row">
+        <article class="stat-card">
+          <span class="stat-value" id="statItems">0</span>
+          <span class="stat-label">Current cards</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-value" id="statCatalog">0</span>
+          <span class="stat-label">Catalog rows</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-value" id="statSources">0</span>
+          <span class="stat-label">Active sources</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-value" id="statAnalyzed">0</span>
+          <span class="stat-label">AI notes cached</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-value" id="statNew">0</span>
+          <span class="stat-label">New this sync</span>
+        </article>
+      </section>
+
+      <section class="chart-row">
+        <article class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Source mix</p>
+              <h2 class="panel-title">Where the cards are coming from</h2>
+            </div>
+          </div>
+          <div id="sourceChart" class="chart-host"></div>
+        </article>
+        <article class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Sync history</p>
+              <h2 class="panel-title">Always refreshing while the tab is open</h2>
+            </div>
+          </div>
+          <div id="historyChart" class="chart-host"></div>
+        </article>
       </section>
 
       <section class="toolbar">
-        <div class="chip-row" id="chipRow">
-          <button class="chip chip-on" data-chip="all" type="button">All</button>
-          <button class="chip" data-chip="money" type="button">Money</button>
-          <button class="chip" data-chip="ai" type="button">AI</button>
-          <button class="chip" data-chip="saas" type="button">SaaS</button>
-          <button class="chip" data-chip="cli" type="button">CLI</button>
+        <input class="search-input" id="searchInput" type="search" placeholder="Search repos, packages, posts, tags, opportunities...">
+        <div class="toolbar-actions">
+          <button class="btn" id="analyzeTopBtn" type="button">Analyze top cards</button>
+          <a class="btn" href="/catalog.html">Open database list</a>
         </div>
-        <input class="search-input" id="searchInput" type="search"
-          placeholder="Search repos, posts, tags, summaries...">
       </section>
 
-      <section class="grid" id="repoGrid" aria-live="polite"></section>
+      <section class="panel list-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Live feed</p>
+            <h2 class="panel-title">Recent arrivals</h2>
+          </div>
+        </div>
+        <div id="liveFeed" class="feed-list"></div>
+      </section>
+
+      <section class="cards-grid" id="repoGrid" aria-live="polite"></section>
     </section>
 
     <aside class="right-rail">
-      <section class="rail-card">
-        <div class="rail-title">Top movers</div>
-        <div id="trendingList" class="stack-list"></div>
+      <section class="panel compact-panel">
+        <p class="panel-kicker">Top movers</p>
+        <div id="trendingList" class="mini-list"></div>
       </section>
 
-      <section class="rail-card">
-        <div class="rail-title">Local-first notes</div>
+      <section class="panel compact-panel">
+        <p class="panel-kicker">Source health</p>
+        <div id="sourceHealth" class="mini-list"></div>
+      </section>
+
+      <section class="panel compact-panel">
+        <p class="panel-kicker">Local notes</p>
         <ul class="hint-list">
-          <li>Saved cards stay in this browser using <code>localStorage</code>.</li>
-          <li>AI summaries are cached per item so refreshes stay fast.</li>
-          <li>Offline assets are cached by a service worker when supported.</li>
+          <li>Saved and queued statuses persist in your browser.</li>
+          <li>The catalog page stores every fetched row with first seen and last seen times.</li>
+          <li>Offline caching and periodic sync are best effort, depending on the browser.</li>
         </ul>
-      </section>
-
-      <section class="rail-card">
-        <div class="rail-title">Background reality</div>
-        <p class="rail-copy">
-          Background refresh can work for installed PWAs in some browsers, but not reliably after the browser is fully
-          closed.
-          For always-on sync later, we should add a hosted database plus scheduled jobs.
-        </p>
       </section>
     </aside>
   </main>
@@ -172,25 +184,25 @@
   <template id="cardTemplate">
     <article class="repo-card">
       <div class="card-top">
-        <span class="source-badge"></span>
-        <span class="score-badge"></span>
+        <span class="source-pill"></span>
+        <span class="metric-pill"></span>
       </div>
       <h2 class="repo-name"></h2>
       <p class="repo-owner"></p>
       <p class="repo-desc"></p>
       <div class="tag-row"></div>
       <div class="analysis-box"></div>
-      <div class="meter-row"></div>
-      <div class="repo-meta"></div>
-      <div class="action-row">
-        <button class="action-btn save-btn" type="button"></button>
-        <button class="action-btn visit-btn" type="button">Open</button>
+      <div class="score-row"></div>
+      <div class="meta-row"></div>
+      <div class="card-actions">
+        <button class="action-btn save-btn" type="button">Save</button>
+        <button class="action-btn queue-btn" type="button">Queue</button>
         <button class="action-btn analyze-btn" type="button">Analyze</button>
+        <button class="action-btn visit-btn" type="button">Open</button>
       </div>
     </article>
   </template>
 
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="/dashboard.js"></script>
 </body>
-
 </html>

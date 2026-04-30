@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RepoRadar Settings</title>
+  <meta name="description" content="RepoRadar local settings, key vault, source toggles, and env import/export.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/index.html">
+      <span class="brand-mark">RR</span>
+      <span>
+        <strong class="brand-name">RepoRadar</strong>
+        <span class="brand-copy">local env vault and automation</span>
+      </span>
+    </a>
+    <nav class="main-nav">
+      <a class="nav-link" href="/index.html">Dashboard</a>
+      <a class="nav-link" href="/catalog.html">Catalog</a>
+      <a class="nav-link active" href="/settings.html">Settings</a>
+    </nav>
+    <div class="topbar-actions">
+      <div class="status-pill" id="settingsStatus">Edit and save your runtime settings</div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="page-header">
+      <p class="eyebrow">Settings page</p>
+      <h1>Paste keys once, keep them locally, and let the dashboard reuse them.</h1>
+      <p class="hero-copy">
+        The app saves runtime config in localStorage for static hosting. You can also export a real <code>.env</code> file snapshot or import one back into the browser vault.
+      </p>
+    </section>
+
+    <section class="settings-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Key vault</p>
+            <h2 class="panel-title">Runtime secrets</h2>
+          </div>
+        </div>
+        <label class="field-label" for="groqApiKey">Groq API key</label>
+        <input class="field-input" id="groqApiKey" type="password" placeholder="gsk_...">
+        <label class="field-label" for="groqModel">Groq model</label>
+        <input class="field-input" id="groqModel" type="text" placeholder="llama-3.3-70b-versatile">
+        <label class="field-label" for="githubToken">GitHub token</label>
+        <input class="field-input" id="githubToken" type="password" placeholder="ghp_... or fine-grained token">
+        <label class="field-label" for="productHuntToken">Product Hunt bearer token</label>
+        <input class="field-input" id="productHuntToken" type="password" placeholder="Optional">
+        <div class="button-row">
+          <button class="btn btn-strong" id="saveVaultBtn" type="button">Save vault</button>
+          <button class="btn" id="clearVaultBtn" type="button">Clear secrets</button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Sources</p>
+            <h2 class="panel-title">Public and optional APIs</h2>
+          </div>
+        </div>
+        <div class="switch-grid">
+          <label class="switch-row"><span>GitHub repos</span><input type="checkbox" id="sourceGithub"></label>
+          <label class="switch-row"><span>Hacker News</span><input type="checkbox" id="sourceHn"></label>
+          <label class="switch-row"><span>Reddit</span><input type="checkbox" id="sourceReddit"></label>
+          <label class="switch-row"><span>Dev.to</span><input type="checkbox" id="sourceDevto"></label>
+          <label class="switch-row"><span>npm packages</span><input type="checkbox" id="sourceNpm"></label>
+          <label class="switch-row"><span>Product Hunt</span><input type="checkbox" id="sourceProductHunt"></label>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Automation</p>
+            <h2 class="panel-title">Refresh and analysis behavior</h2>
+          </div>
+        </div>
+        <div class="switch-grid">
+          <label class="switch-row"><span>Auto refresh while tab is open</span><input type="checkbox" id="autoRefresh"></label>
+          <label class="switch-row"><span>Auto analyze new top cards</span><input type="checkbox" id="autoAnalyze"></label>
+          <label class="switch-row"><span>Register service worker</span><input type="checkbox" id="offlineMode"></label>
+          <label class="switch-row"><span>Prefer server API when available</span><input type="checkbox" id="preferServer"></label>
+        </div>
+        <label class="field-label" for="refreshMinutes">Refresh interval in minutes</label>
+        <input class="field-input" id="refreshMinutes" type="number" min="1" max="120">
+        <label class="field-label" for="maxItems">Max rows per sync</label>
+        <input class="field-input" id="maxItems" type="number" min="6" max="80">
+        <div class="button-row">
+          <button class="btn btn-strong" id="saveAutomationBtn" type="button">Save settings</button>
+        </div>
+      </article>
+
+      <article class="panel full-width">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Env import/export</p>
+            <h2 class="panel-title">Use dotenv style text when you want to move settings around</h2>
+          </div>
+        </div>
+        <label class="field-label" for="envTextarea">Paste env text here</label>
+        <textarea class="field-textarea" id="envTextarea" placeholder="GROQ_API_KEY=...\nGITHUB_TOKEN=...\nPRODUCT_HUNT_BEARER_TOKEN=..."></textarea>
+        <div class="button-row">
+          <button class="btn" id="importEnvBtn" type="button">Import env text</button>
+          <button class="btn" id="previewEnvBtn" type="button">Preview current env</button>
+          <button class="btn btn-strong" id="downloadEnvBtn" type="button">Download env file</button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Diagnostics</p>
+            <h2 class="panel-title">What will happen at runtime</h2>
+          </div>
+        </div>
+        <dl class="meta-list" id="settingsDiagnostics"></dl>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Reality check</p>
+            <h2 class="panel-title">What the browser can and cannot do</h2>
+          </div>
+        </div>
+        <ul class="hint-list">
+          <li>The browser can keep your keys locally and use them directly for your own session.</li>
+          <li>A static site cannot write a hidden server env for all users, so the local vault is the practical open-site mode.</li>
+          <li>Background refresh after the browser is fully closed is not dependable without a backend worker.</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="/settings.js"></script>
+</body>
+</html>

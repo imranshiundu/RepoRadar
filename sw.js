@@ -1,10 +1,16 @@
-const STATIC_CACHE = "repo-radar-static-v1";
-const DATA_CACHE = "repo-radar-data-v1";
+const STATIC_CACHE = "repo-radar-static-v2";
+const DATA_CACHE = "repo-radar-data-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
+  "/catalog.html",
+  "/settings.html",
   "/styles.css",
-  "/app.js",
+  "/runtime.js",
+  "/data.js",
+  "/dashboard.js",
+  "/settings.js",
+  "/catalog.js",
   "/manifest.webmanifest"
 ];
 
