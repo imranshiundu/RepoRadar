@@ -745,6 +745,11 @@ textarea.field-input {
   font-size: 0.74rem;
 }
 
+.audit-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .audit-table th,
 .audit-table td {
   padding: 0.55rem 0.45rem;
@@ -913,5 +918,104 @@ textarea.field-input {
   .page-shell,
   .app-shell {
     padding: 0.55rem;
+  }
+
+  .panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-head .search-input {
+    width: 100%;
+    max-width: none !important;
+  }
+
+  .audit-table-wrap {
+    overflow: visible;
+  }
+
+  .audit-table {
+    font-size: 0.72rem;
+  }
+
+  .audit-table thead {
+    display: none;
+  }
+
+  .audit-table,
+  .audit-table tbody,
+  .audit-table tr,
+  .audit-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .audit-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .audit-table tr {
+    padding: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: rgba(255, 253, 248, 0.9);
+  }
+
+  .audit-table td {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 0.45rem;
+    padding: 0.18rem 0 !important;
+    border: 0;
+    text-align: left !important;
+  }
+
+  .audit-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .audit-table td[data-label="Repository"] {
+    display: block;
+    padding-bottom: 0.35rem !important;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.2rem;
+  }
+
+  .audit-table td[data-label="Repository"]::before {
+    display: none;
+  }
+
+  .audit-table .repo-name {
+    margin-bottom: 0.22rem;
+  }
+
+  .audit-table .repo-description {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    white-space: normal !important;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .audit-table .catalog-action-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.35rem !important;
+    border-top: 1px solid var(--border);
+    margin-top: 0.2rem;
+  }
+
+  .audit-table .catalog-action-cell::before {
+    content: attr(data-label);
   }
 }

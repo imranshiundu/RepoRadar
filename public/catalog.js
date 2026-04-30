@@ -74,16 +74,16 @@ function render() {
     const isSaved = state.saved.has(row.id);
 
     tr.innerHTML = `
-      <td style="padding: 1rem 0.5rem;">
-        <div style="font-weight: 600;">${row.name}</div>
-        <div class="small-copy" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.desc || "No description"}</div>
+      <td data-label="Repository" style="padding: 1rem 0.5rem;">
+        <div class="repo-name" style="font-weight: 600;">${row.name}</div>
+        <div class="small-copy repo-description" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.desc || "No description"}</div>
       </td>
-      <td style="padding: 1rem 0.5rem;"><span class="source-pill" style="font-size: 0.65rem;">${sourceLabel(row.source)}</span></td>
-      <td style="padding: 1rem 0.5rem;">${Math.round(row.scores?.trend || 0)}</td>
-      <td style="padding: 1rem 0.5rem;">${Math.round(row.scores?.money || 0)}</td>
-      <td style="padding: 1rem 0.5rem; color: var(--muted);">${formatTime(row.firstSeenAt)}</td>
-      <td style="padding: 1rem 0.5rem; color: var(--muted);">${formatTime(row.lastSeenAt)}</td>
-      <td style="padding: 1rem 0.5rem; text-align: right;">
+      <td data-label="Source" style="padding: 1rem 0.5rem;"><span class="source-pill" style="font-size: 0.65rem;">${sourceLabel(row.source)}</span></td>
+      <td data-label="Trend" style="padding: 1rem 0.5rem;">${Math.round(row.scores?.trend || 0)}</td>
+      <td data-label="Money" style="padding: 1rem 0.5rem;">${Math.round(row.scores?.money || 0)}</td>
+      <td data-label="First Seen" style="padding: 1rem 0.5rem; color: var(--muted);">${formatTime(row.firstSeenAt)}</td>
+      <td data-label="Last Seen" style="padding: 1rem 0.5rem; color: var(--muted);">${formatTime(row.lastSeenAt)}</td>
+      <td data-label="Action" class="catalog-action-cell" style="padding: 1rem 0.5rem; text-align: right;">
         <button class="btn ${isSaved ? 'btn-strong' : ''}" data-action="save" style="font-size: 0.7rem;">${isSaved ? "Saved" : "Save"}</button>
       </td>
     `;
@@ -96,7 +96,11 @@ function render() {
     tbody.appendChild(tr);
   }
 
-  els.catalogTableHost.appendChild(table);
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "audit-table-wrap";
+  tableWrap.appendChild(table);
+
+  els.catalogTableHost.appendChild(tableWrap);
 }
 
 function filteredRows() {
