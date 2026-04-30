@@ -1,619 +1,39 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Repo Radar — Developer intelligence dashboard showing trending repositories from GitHub, Reddit, Hacker News and more, with AI-powered monetization scoring.">
-<title>Repo Radar | Developer Intelligence Dashboard</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #0a0a0f;
-    --surface: #111118;
-    --surface2: #1a1a24;
-    --border: rgba(255,255,255,0.07);
-    --border2: rgba(255,255,255,0.12);
-    --text: #e8e8f0;
-    --muted: #666680;
-    --accent: #7c6af7;
-    --accent2: #3ecfb3;
-    --accent3: #f7c26a;
-    --accent4: #f76a8a;
-    --font-head: 'Syne', sans-serif;
-    --font-mono: 'Space Mono', monospace;
-  }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* TOPBAR */
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .logo {
-    font-family: var(--font-head);
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .logo-icon {
-    width: 28px; height: 28px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px;
-  }
-
-  .logo span { color: var(--accent); }
-
-  .topbar-actions { display: flex; gap: 8px; align-items: center; }
-
-  .badge-live {
-    background: rgba(62,207,179,0.15);
-    color: var(--accent2);
-    border: 1px solid rgba(62,207,179,0.3);
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 11px;
-    letter-spacing: 0.5px;
-    display: flex; align-items: center; gap: 5px;
-  }
-
-  .live-dot {
-    width: 6px; height: 6px;
-    background: var(--accent2);
-    border-radius: 50%;
-    animation: pulse 1.8s infinite;
-  }
-
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-  .btn {
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    padding: 6px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    transition: all 0.15s;
-  }
-  .btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-  /* LAYOUT */
-  .layout { display: flex; height: calc(100vh - 57px); }
-
-  /* SIDEBAR */
-  .sidebar {
-    width: 220px;
-    flex-shrink: 0;
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-    overflow-y: auto;
-    padding: 12px 0;
-  }
-
-  .sidebar-section { margin-bottom: 4px; }
-
-  .sidebar-label {
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    color: var(--muted);
-    padding: 8px 16px 4px;
-    text-transform: uppercase;
-  }
-
-  .sidebar-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 16px;
-    cursor: pointer;
-    border-radius: 0;
-    transition: all 0.12s;
-    color: var(--muted);
-    font-size: 12px;
-    border-left: 2px solid transparent;
-    position: relative;
-  }
-  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
-  .sidebar-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(124,106,247,0.08); }
-  .sidebar-item .count {
-    margin-left: auto;
-    background: var(--surface2);
-    color: var(--muted);
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 10px;
-  }
-  .sidebar-item.active .count { background: rgba(124,106,247,0.2); color: var(--accent); }
-
-  .sidebar-icon { font-size: 14px; width: 16px; text-align: center; }
-
-  /* MAIN */
-  .main { flex: 1; overflow-y: auto; background: var(--bg); }
-
-  /* FILTERS BAR */
-  .filters-bar {
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    background: var(--surface);
-    flex-wrap: wrap;
-  }
-
-  .filter-chip {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    cursor: pointer;
-    border: 1px solid var(--border2);
-    color: var(--muted);
-    background: transparent;
-    font-family: var(--font-mono);
-    transition: all 0.12s;
-  }
-  .filter-chip:hover { color: var(--text); border-color: var(--text); }
-  .filter-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .filter-chip.on.green { background: rgba(62,207,179,0.2); border-color: var(--accent2); color: var(--accent2); }
-  .filter-chip.on.gold { background: rgba(247,194,106,0.2); border-color: var(--accent3); color: var(--accent3); }
-
-  .search-box {
-    margin-left: auto;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    padding: 5px 12px;
-    border-radius: 8px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    width: 200px;
-    outline: none;
-  }
-  .search-box:focus { border-color: var(--accent); }
-  .search-box::placeholder { color: var(--muted); }
-
-  /* STATS ROW */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .stat-card {
-    background: var(--surface);
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .stat-val {
-    font-family: var(--font-head);
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -1px;
-  }
-
-  .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
-
-  /* REPO GRID */
-  .repo-grid {
-    padding: 16px 20px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 12px;
-  }
-
-  .repo-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    transition: all 0.15s;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .repo-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: var(--accent);
-    opacity: 0;
-    transition: opacity 0.15s;
-  }
-
-  .repo-card:hover { border-color: var(--border2); transform: translateY(-1px); }
-  .repo-card:hover::before { opacity: 1; }
-  .repo-card.monetizable { border-color: rgba(247,194,106,0.25); }
-  .repo-card.monetizable::before { background: var(--accent3); opacity: 1; }
-  .repo-card.hot { border-color: rgba(247,106,138,0.25); }
-  .repo-card.hot::before { background: var(--accent4); opacity: 1; }
-
-  .repo-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
-  }
-
-  .repo-source {
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .source-dot { width: 5px; height: 5px; border-radius: 50%; }
-  .src-github { background: #888; }
-  .src-reddit { background: #ff4500; }
-  .src-hn { background: #ff6600; }
-  .src-ph { background: #da552f; }
-
-  .repo-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-
-  .tag {
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 4px;
-    font-family: var(--font-mono);
-  }
-
-  .tag-lang { background: rgba(124,106,247,0.15); color: var(--accent); }
-  .tag-money { background: rgba(247,194,106,0.15); color: var(--accent3); }
-  .tag-ai { background: rgba(62,207,179,0.15); color: var(--accent2); }
-  .tag-hot { background: rgba(247,106,138,0.15); color: var(--accent4); }
-  .tag-saas { background: rgba(62,207,179,0.1); color: var(--accent2); border: 1px solid rgba(62,207,179,0.2); }
-
-  .repo-name {
-    font-family: var(--font-head);
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 2px;
-    letter-spacing: -0.3px;
-  }
-
-  .repo-owner { color: var(--muted); font-size: 11px; margin-bottom: 8px; }
-
-  .repo-desc {
-    font-size: 12px;
-    color: #9999aa;
-    line-height: 1.6;
-    margin-bottom: 10px;
-  }
-
-  .ai-summary {
-    background: rgba(124,106,247,0.06);
-    border: 1px solid rgba(124,106,247,0.15);
-    border-radius: 8px;
-    padding: 8px 10px;
-    font-size: 11px;
-    color: #aaaacc;
-    line-height: 1.5;
-    margin-bottom: 10px;
-    display: flex;
-    gap: 6px;
-  }
-
-  .ai-label { color: var(--accent); font-size: 10px; flex-shrink: 0; margin-top: 1px; }
-
-  .repo-meta {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    color: var(--muted);
-    font-size: 11px;
-  }
-
-  .meta-item { display: flex; align-items: center; gap: 4px; }
-
-  .score-bar {
-    display: flex;
-    gap: 4px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-  }
-
-  .score-item { flex: 1; }
-  .score-name { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 3px; }
-  .score-track { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
-  .score-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
-
-  .repo-actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 10px;
-  }
-
-  .action-btn {
-    flex: 1;
-    padding: 5px 8px;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--muted);
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    text-align: center;
-    transition: all 0.12s;
-  }
-  .action-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .action-btn.saved { background: rgba(124,106,247,0.2); border-color: var(--accent); color: var(--accent); }
-
-  /* SECTION HEADER */
-  .section-header {
-    padding: 16px 20px 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .section-title {
-    font-family: var(--font-head);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: var(--muted);
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .section-title span { color: var(--accent); }
-
-  /* RIGHT PANEL */
-  .right-panel {
-    width: 280px;
-    flex-shrink: 0;
-    border-left: 1px solid var(--border);
-    background: var(--surface);
-    overflow-y: auto;
-    padding: 16px;
-  }
-
-  .panel-section { margin-bottom: 20px; }
-  .panel-title { font-size: 10px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
-
-  .trending-item {
-    display: flex;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-  }
-  .trending-item:last-child { border-bottom: none; }
-  .trending-rank {
-    font-family: var(--font-head);
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--border2);
-    width: 24px;
-    flex-shrink: 0;
-    line-height: 1;
-  }
-  .trending-name { font-size: 12px; color: var(--text); margin-bottom: 2px; }
-  .trending-stars { font-size: 10px; color: var(--accent3); }
-
-  .lang-bar {
-    display: flex;
-    gap: 3px;
-    height: 6px;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-  .lang-seg { height: 100%; border-radius: 1px; }
-
-  .lang-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-  .lang-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
-  .lang-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-
-  .alert-item {
-    padding: 8px 10px;
-    background: var(--surface2);
-    border-radius: 8px;
-    margin-bottom: 6px;
-    font-size: 11px;
-    line-height: 1.5;
-    color: #9999aa;
-    border-left: 2px solid var(--accent);
-  }
-  .alert-item.gold { border-left-color: var(--accent3); }
-  .alert-item.red { border-left-color: var(--accent4); }
-  .alert-time { font-size: 10px; color: var(--muted); margin-top: 3px; }
-
-  /* CONFIG PANEL */
-  .config-area {
-    padding: 16px 20px;
-    display: none;
-  }
-  .config-area.show { display: block; }
-
-  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-  .config-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-  }
-  .config-card h4 { font-family: var(--font-head); font-size: 13px; margin-bottom: 10px; color: var(--text); }
-  .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 12px; color: var(--muted); }
-  .toggle {
-    width: 32px; height: 18px;
-    background: var(--surface2);
-    border-radius: 9px;
-    border: 1px solid var(--border2);
-    cursor: pointer;
-    position: relative;
-    transition: background 0.2s;
-    flex-shrink: 0;
-  }
-  .toggle.on { background: var(--accent); }
-  .toggle::after {
-    content: '';
-    position: absolute;
-    top: 2px; left: 2px;
-    width: 12px; height: 12px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform 0.2s;
-  }
-  .toggle.on::after { transform: translateX(14px); }
-
-  .input-field {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    padding: 7px 10px;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    outline: none;
-    margin-top: 4px;
-  }
-  .input-field:focus { border-color: var(--accent); }
-  .input-label { font-size: 11px; color: var(--muted); margin-top: 8px; display: block; }
-
-  /* FOLDER TABS */
-  .folder-tabs {
-    padding: 12px 20px 0;
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .folder-tab {
-    padding: 6px 14px;
-    border-radius: 8px 8px 0 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-bottom: none;
-    font-size: 12px;
-    cursor: pointer;
-    color: var(--muted);
-    white-space: nowrap;
-    transition: all 0.12s;
-  }
-  .folder-tab.active { color: var(--text); border-color: var(--border2); background: var(--surface2); }
-  .folder-tab .tab-count { font-size: 10px; color: var(--muted); margin-left: 4px; }
-
-  /* API KEY BANNER */
-  .api-banner {
-    margin: 16px 20px;
-    padding: 12px 14px;
-    background: rgba(124,106,247,0.08);
-    border: 1px solid rgba(124,106,247,0.2);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 12px;
-    color: #9999cc;
-  }
-
-  .api-banner input {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    outline: none;
-  }
-
-  .monetize-score {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    color: var(--accent3);
-  }
-
-  /* LOADING SHIMMER */
-  .shimmer {
-    background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 6px;
-    height: 12px;
-    margin: 4px 0;
-  }
-  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-  /* SCROLLBAR */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-
-  .refresh-spin { animation: spin 1s linear infinite; display: inline-block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Repo Radar — Developer intelligence dashboard showing trending repositories from GitHub, Reddit, Hacker News and more, with AI-powered monetization scoring.">
+    <title>Repo Radar | Developer Intelligence Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
 
 <h2 class="sr-only">Repo Radar — Developer intelligence dashboard showing trending repositories from GitHub, Reddit, Hacker News and more, with AI-powered monetization scoring</h2>
 
 <div class="topbar">
   <div class="logo">
-    <div class="logo-icon">⬡</div>
+    <div class="logo-icon"><i data-lucide="hexagon"></i></div>
     REPO<span>RADAR</span>
   </div>
   <div class="topbar-actions">
     <div class="badge-live"><div class="live-dot"></div> LIVE FEED</div>
-    <button class="btn" onclick="toggleConfig()">⚙ Config</button>
-    <button class="btn btn-accent" onclick="triggerRefresh()">↻ Refresh</button>
+    <button class="btn" onclick="toggleConfig()"><i data-lucide="settings"></i> Config</button>
+    <button class="btn btn-accent" onclick="triggerRefresh()"><i data-lucide="refresh-cw"></i> Refresh</button>
   </div>
 </div>
 
 <div id="configArea" class="config-area">
   <div class="api-banner">
-    <span>⚡ Groq API Key</span>
+    <span><i data-lucide="zap"></i> Groq API Key</span>
     <input type="password" id="groqKey" placeholder="gsk_xxxx... (stored locally, never sent anywhere)" />
     <button class="btn btn-accent" onclick="saveKey()">Save</button>
   </div>
   <div class="config-grid">
     <div class="config-card">
-      <h4>📡 Data Sources</h4>
+      <h4><i data-lucide="rss"></i> Data Sources</h4>
       <div class="toggle-row">GitHub Trending <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">Hacker News <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">r/programming <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
@@ -624,7 +44,7 @@
       <div class="toggle-row">npm Trending <div class="toggle" onclick="this.classList.toggle('on')"></div></div>
     </div>
     <div class="config-card">
-      <h4>🤖 AI Analysis</h4>
+      <h4><i data-lucide="bot"></i> AI Analysis</h4>
       <div class="toggle-row">Auto-summarize repos <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">Monetize scoring <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">Tech stack detection <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
@@ -641,7 +61,7 @@
       <input class="input-field" value="AI, SaaS, automation, dev tools, CLI" />
     </div>
     <div class="config-card">
-      <h4>📁 Smart Folders</h4>
+      <h4><i data-lucide="folder-kanban"></i> Smart Folders</h4>
       <div class="toggle-row">Auto-categorize repos <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">AI Tools folder <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">Monetizable folder <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
@@ -649,7 +69,7 @@
       <div class="toggle-row">Ship This Weekend <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
     </div>
     <div class="config-card">
-      <h4>🔔 Alerts</h4>
+      <h4><i data-lucide="bell"></i> Alerts</h4>
       <div class="toggle-row">Star milestone alerts <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">New Show HN drops <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row">Language trending <div class="toggle" onclick="this.classList.toggle('on')"></div></div>
@@ -664,64 +84,64 @@
     <div class="sidebar-section">
       <div class="sidebar-label">Discover</div>
       <div class="sidebar-item active" onclick="setView('trending',this)">
-        <span class="sidebar-icon">🔥</span> Trending Now <span class="count">48</span>
+        <span class="sidebar-icon"><i data-lucide="flame"></i></span> Trending Now <span class="count">48</span>
       </div>
       <div class="sidebar-item" onclick="setView('personalized',this)">
-        <span class="sidebar-icon">✦</span> For You <span class="count">23</span>
+        <span class="sidebar-icon"><i data-lucide="sparkles"></i></span> For You <span class="count">23</span>
       </div>
       <div class="sidebar-item" onclick="setView('monetize',this)">
-        <span class="sidebar-icon">💰</span> Monetizable <span class="count">12</span>
+        <span class="sidebar-icon"><i data-lucide="dollar-sign"></i></span> Monetizable <span class="count">12</span>
       </div>
       <div class="sidebar-item" onclick="setView('ship',this)">
-        <span class="sidebar-icon">🚀</span> Ship This Weekend <span class="count">7</span>
+        <span class="sidebar-icon"><i data-lucide="rocket"></i></span> Ship This Weekend <span class="count">7</span>
       </div>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Smart Folders</div>
       <div class="sidebar-item" onclick="setView('ai',this)">
-        <span class="sidebar-icon">🤖</span> AI + LLM Tools <span class="count">19</span>
+        <span class="sidebar-icon"><i data-lucide="bot"></i></span> AI + LLM Tools <span class="count">19</span>
       </div>
       <div class="sidebar-item" onclick="setView('saas',this)">
-        <span class="sidebar-icon">☁</span> SaaS Starters <span class="count">11</span>
+        <span class="sidebar-icon"><i data-lucide="cloud"></i></span> SaaS Starters <span class="count">11</span>
       </div>
       <div class="sidebar-item" onclick="setView('cli',this)">
-        <span class="sidebar-icon">⌨</span> CLI Wizardry <span class="count">8</span>
+        <span class="sidebar-icon"><i data-lucide="keyboard"></i></span> CLI Wizardry <span class="count">8</span>
       </div>
       <div class="sidebar-item" onclick="setView('data',this)">
-        <span class="sidebar-icon">📊</span> Data + APIs <span class="count">14</span>
+        <span class="sidebar-icon"><i data-lucide="bar-chart-3"></i></span> Data + APIs <span class="count">14</span>
       </div>
       <div class="sidebar-item" onclick="setView('web',this)">
-        <span class="sidebar-icon">◈</span> Web Dev <span class="count">16</span>
+        <span class="sidebar-icon"><i data-lucide="layers"></i></span> Web Dev <span class="count">16</span>
       </div>
       <div class="sidebar-item" onclick="setView('curious',this)">
-        <span class="sidebar-icon">⬡</span> Just Curious <span class="count">31</span>
+        <span class="sidebar-icon"><i data-lucide="hexagon"></i></span> Just Curious <span class="count">31</span>
       </div>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Sources</div>
       <div class="sidebar-item" onclick="setView('github',this)">
-        <span class="sidebar-icon" style="font-size:12px">◎</span> GitHub <span class="count">28</span>
+        <span class="sidebar-icon"><i data-lucide="github"></i></span> GitHub <span class="count">28</span>
       </div>
       <div class="sidebar-item" onclick="setView('reddit',this)">
-        <span class="sidebar-icon" style="color:#ff4500;font-size:12px">●</span> Reddit <span class="count">13</span>
+        <span class="sidebar-icon"><i data-lucide="circle"></i></span> Reddit <span class="count">13</span>
       </div>
       <div class="sidebar-item" onclick="setView('hn',this)">
-        <span class="sidebar-icon" style="color:#ff6600;font-size:12px">▲</span> Hacker News <span class="count">9</span>
+        <span class="sidebar-icon"><i data-lucide="triangle"></i></span> Hacker News <span class="count">9</span>
       </div>
       <div class="sidebar-item" onclick="setView('ph',this)">
-        <span class="sidebar-icon" style="color:#da552f;font-size:12px">◆</span> Product Hunt <span class="count">6</span>
+        <span class="sidebar-icon"><i data-lucide="diamond"></i></span> Product Hunt <span class="count">6</span>
       </div>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">My Library</div>
       <div class="sidebar-item" onclick="setView('saved',this)">
-        <span class="sidebar-icon">◈</span> Saved <span class="count" id="savedCount">0</span>
+        <span class="sidebar-icon"><i data-lucide="bookmark"></i></span> Saved <span class="count" id="savedCount">0</span>
       </div>
       <div class="sidebar-item" onclick="setView('queue',this)">
-        <span class="sidebar-icon">○</span> Reading Queue <span class="count">4</span>
+        <span class="sidebar-icon"><i data-lucide="list"></i></span> Reading Queue <span class="count">4</span>
       </div>
       <div class="sidebar-item" onclick="setView('notes',this)">
-        <span class="sidebar-icon">✎</span> My Notes <span class="count">2</span>
+        <span class="sidebar-icon"><i data-lucide="pencil"></i></span> My Notes <span class="count">2</span>
       </div>
     </div>
   </div>
@@ -752,20 +172,20 @@
       <div class="filter-chip" onclick="toggleFilter(this)">TypeScript</div>
       <div class="filter-chip" onclick="toggleFilter(this)">Rust</div>
       <div class="filter-chip" onclick="toggleFilter(this)">Go</div>
-      <div class="filter-chip on green" onclick="toggleFilter(this)">💰 Monetizable</div>
-      <div class="filter-chip on gold" onclick="toggleFilter(this)">🔥 Viral</div>
-      <div class="filter-chip" onclick="toggleFilter(this)">AI/ML</div>
-      <div class="filter-chip" onclick="toggleFilter(this)">CLI</div>
+      <div class="filter-chip on green" onclick="toggleFilter(this)"><i data-lucide="dollar-sign"></i> Monetizable</div>
+      <div class="filter-chip on gold" onclick="toggleFilter(this)"><i data-lucide="flame"></i> Viral</div>
+      <div class="filter-chip" onclick="toggleFilter(this)"><i data-lucide="bot"></i> AI/ML</div>
+      <div class="filter-chip" onclick="toggleFilter(this)"><i data-lucide="terminal"></i> CLI</div>
       <input class="search-box" placeholder="Search repos, tags, ideas..." />
     </div>
 
     <div class="folder-tabs">
-      <div class="folder-tab active">🔥 All Trending</div>
-      <div class="folder-tab">✦ Personalized</div>
-      <div class="folder-tab">💰 Monetizable</div>
-      <div class="folder-tab">🚀 Ship Weekend</div>
-      <div class="folder-tab">🤖 AI Tools</div>
-      <div class="folder-tab">+ New Folder</div>
+      <div class="folder-tab active"><i data-lucide="flame"></i> All Trending</div>
+      <div class="folder-tab"><i data-lucide="sparkles"></i> Personalized</div>
+      <div class="folder-tab"><i data-lucide="dollar-sign"></i> Monetizable</div>
+      <div class="folder-tab"><i data-lucide="rocket"></i> Ship Weekend</div>
+      <div class="folder-tab"><i data-lucide="bot"></i> AI Tools</div>
+      <div class="folder-tab"><i data-lucide="plus"></i> New Folder</div>
     </div>
 
     <div id="repoGrid" class="repo-grid"></div>
@@ -773,12 +193,12 @@
 
   <div class="right-panel">
     <div class="panel-section">
-      <div class="panel-title">🔥 Top Trending</div>
+      <div class="panel-title"><i data-lucide="trending-up"></i> Top Trending</div>
       <div id="trendingList"></div>
     </div>
 
     <div class="panel-section">
-      <div class="panel-title">📊 Languages This Week</div>
+      <div class="panel-title"><i data-lucide="pie-chart"></i> Languages This Week</div>
       <div class="lang-bar">
         <div class="lang-seg" style="width:32%;background:#3572A5"></div>
         <div class="lang-seg" style="width:24%;background:#3178c6"></div>
@@ -796,7 +216,7 @@
     </div>
 
     <div class="panel-section">
-      <div class="panel-title">⚡ Live Alerts</div>
+      <div class="panel-title"><i data-lucide="zap"></i> Live Alerts</div>
       <div class="alert-item">
         <div><strong style="color:var(--accent)">shadcn/ui</strong> just crossed 90k stars</div>
         <div class="alert-time">2 min ago</div>
@@ -817,242 +237,6 @@
   </div>
 </div>
 
-<script>
-const repos = [
-  {
-    name: "open-interpreter",
-    owner: "KillianLucas",
-    desc: "A natural language interface for computers. Runs locally on your machine.",
-    source: "github",
-    stars: "57.2k",
-    language: "Python",
-    tags: ["ai", "money", "hot"],
-    aiSummary: "Lets LLMs run code on your computer — think local ChatGPT Code Interpreter. Massive opportunity: wrap into a paid hosted service for non-technical users.",
-    scores: { trend: 92, learn: 85, money: 88 },
-    type: "monetizable",
-    savedId: null
-  },
-  {
-    name: "Flowise",
-    owner: "FlowiseAI",
-    desc: "Drag & drop UI to build your customized LLM flow using LangchainJS",
-    source: "hn",
-    stars: "31.1k",
-    language: "TypeScript",
-    tags: ["ai", "saas", "money"],
-    aiSummary: "Open-core no-code LLM builder. The company already offers a paid cloud version — you could host your own white-label instance and sell to SMBs at $49/mo.",
-    scores: { trend: 88, learn: 79, money: 95 },
-    type: "monetizable",
-    savedId: null
-  },
-  {
-    name: "Ghostty",
-    owner: "mitchellh",
-    desc: "Fast, feature-rich, and cross-platform terminal emulator using platform-native UI",
-    source: "reddit",
-    stars: "23.8k",
-    language: "Zig",
-    tags: ["hot", "cli"],
-    aiSummary: "GPU-accelerated terminal built in Zig. Insanely fast. The Zig ecosystem is exploding — great repo to study systems programming patterns.",
-    scores: { trend: 97, learn: 91, money: 40 },
-    type: "hot",
-    savedId: null
-  },
-  {
-    name: "pocketbase",
-    owner: "pocketbase",
-    desc: "Open Source backend for your next SaaS and mobile app in 1 file",
-    source: "ph",
-    stars: "42.6k",
-    language: "Go",
-    tags: ["saas", "money"],
-    aiSummary: "Single-file Firebase replacement. Competitors charge $25+/mo for what this gives you free. Fork it, add a managed hosting layer, charge $15/mo — similar to PocketHost.",
-    scores: { trend: 84, learn: 88, money: 97 },
-    type: "monetizable",
-    savedId: null
-  },
-  {
-    name: "screenpipe",
-    owner: "mediar-ai",
-    desc: "24/7 screen, mic, audio capture + AI that understands your life",
-    source: "hn",
-    stars: "11.3k",
-    language: "Rust",
-    tags: ["ai", "hot", "money"],
-    aiSummary: "Local Rewind.ai alternative. Records everything happening on your screen and lets LLMs query it. Massive privacy-first angle — sell to devs who won't trust the cloud.",
-    scores: { trend: 90, learn: 82, money: 86 },
-    type: "hot",
-    savedId: null
-  },
-  {
-    name: "trigger.dev",
-    owner: "triggerdotdev",
-    desc: "Open source background jobs platform with built-in AI tooling",
-    source: "github",
-    stars: "8.9k",
-    language: "TypeScript",
-    tags: ["saas", "money"],
-    aiSummary: "Self-hosted Temporal/Inngest alternative. Every SaaS needs background jobs. Deploy this for a client at $500+, or build a hosted version for non-technical founders.",
-    scores: { trend: 78, learn: 90, money: 89 },
-    type: null,
-    savedId: null
-  }
-];
-
-const trending = [
-  { name: "open-interpreter", stars: "+2.3k today" },
-  { name: "Ghostty", stars: "+1.8k today" },
-  { name: "pocketbase", stars: "+1.2k today" },
-  { name: "screenpipe", stars: "+980 today" },
-  { name: "trigger.dev", stars: "+740 today" },
-];
-
-const sourceColors = { github: '#888', reddit: '#ff4500', hn: '#ff6600', ph: '#da552f' };
-const sourceLabels = { github: 'GitHub', reddit: 'Reddit', hn: 'Hacker News', ph: 'Product Hunt' };
-
-let saved = new Set();
-
-function renderRepos(list) {
-  const grid = document.getElementById('repoGrid');
-  grid.innerHTML = list.map((r, i) => {
-    const tagHtml = [
-      r.language ? `<span class="tag tag-lang">${r.language}</span>` : '',
-      r.tags.includes('money') ? `<span class="tag tag-money">💰 monetizable</span>` : '',
-      r.tags.includes('ai') ? `<span class="tag tag-ai">AI</span>` : '',
-      r.tags.includes('hot') ? `<span class="tag tag-hot">🔥 viral</span>` : '',
-      r.tags.includes('saas') ? `<span class="tag tag-saas">SaaS</span>` : '',
-    ].join('');
-
-    const isSaved = saved.has(r.name);
-
-    return `
-    <div class="repo-card ${r.type || ''}" style="animation:fadeIn 0.3s ease ${i*0.05}s both">
-      <div class="repo-top">
-        <div class="repo-source">
-          <div class="source-dot src-${r.source}"></div>
-          ${sourceLabels[r.source]}
-        </div>
-        <div class="monetize-score">
-          ${r.scores.money >= 85 ? '💰 ' + r.scores.money + '% monetize score' : ''}
-        </div>
-      </div>
-      <div class="repo-name">${r.name}</div>
-      <div class="repo-owner">by ${r.owner}</div>
-      <div class="repo-tags">${tagHtml}</div>
-      <div class="repo-desc">${r.desc}</div>
-      <div class="ai-summary">
-        <span class="ai-label">AI▸</span>
-        <span>${r.aiSummary}</span>
-      </div>
-      <div class="score-bar">
-        <div class="score-item">
-          <div class="score-name">TREND</div>
-          <div class="score-track"><div class="score-fill" style="width:${r.scores.trend}%;background:var(--accent4)"></div></div>
-        </div>
-        <div class="score-item">
-          <div class="score-name">LEARN</div>
-          <div class="score-track"><div class="score-fill" style="width:${r.scores.learn}%;background:var(--accent)"></div></div>
-        </div>
-        <div class="score-item">
-          <div class="score-name">MONEY</div>
-          <div class="score-track"><div class="score-fill" style="width:${r.scores.money}%;background:var(--accent3)"></div></div>
-        </div>
-      </div>
-      <div class="repo-meta">
-        <span class="meta-item">★ ${r.stars}</span>
-        <span class="meta-item" style="margin-left:auto;color:var(--muted);font-size:10px">Updated 2h ago</span>
-      </div>
-      <div class="repo-actions">
-        <button class="action-btn ${isSaved?'saved':''}" onclick="toggleSave('${r.name}',this)">${isSaved?'✓ Saved':'+ Save'}</button>
-        <button class="action-btn" onclick="openRepo('${r.owner}','${r.name}')">↗ GitHub</button>
-        <button class="action-btn" onclick="addToQueue('${r.name}',this)">Queue</button>
-        <button class="action-btn" onclick="analyzeMore('${r.name}')">🤖 Analyze ↗</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderTrending() {
-  document.getElementById('trendingList').innerHTML = trending.map((t, i) => `
-    <div class="trending-item">
-      <div class="trending-rank">${String(i+1).padStart(2,'0')}</div>
-      <div>
-        <div class="trending-name">${t.name}</div>
-        <div class="trending-stars">${t.stars}</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function toggleSave(name, btn) {
-  if (saved.has(name)) {
-    saved.delete(name);
-    btn.textContent = '+ Save';
-    btn.classList.remove('saved');
-  } else {
-    saved.add(name);
-    btn.textContent = '✓ Saved';
-    btn.classList.add('saved');
-  }
-  document.getElementById('savedCount').textContent = saved.size;
-}
-
-function openRepo(owner, name) {
-  window.open(`https://github.com/${owner}/${name}`, '_blank');
-}
-
-function addToQueue(name, btn) {
-  btn.textContent = '✓ Queued';
-  btn.style.color = 'var(--accent2)';
-}
-
-function analyzeMore(name) {
-  sendPrompt(`Tell me more about the "${name}" repository — what's the full monetization opportunity, who would pay for it, and what would it take to ship a weekend MVP around this?`);
-}
-
-function toggleFilter(el) {
-  el.classList.toggle('on');
-}
-
-function setView(type, el) {
-  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-  el.classList.add('active');
-  let filtered = repos;
-  if (type === 'monetize') filtered = repos.filter(r => r.scores.money >= 85);
-  else if (type === 'ai') filtered = repos.filter(r => r.tags.includes('ai'));
-  else if (type === 'saas') filtered = repos.filter(r => r.tags.includes('saas'));
-  else if (type === 'hot') filtered = repos.filter(r => r.type === 'hot');
-  else if (type === 'github') filtered = repos.filter(r => r.source === 'github');
-  else if (type === 'reddit') filtered = repos.filter(r => r.source === 'reddit');
-  else if (type === 'hn') filtered = repos.filter(r => r.source === 'hn');
-  else if (type === 'ph') filtered = repos.filter(r => r.source === 'ph');
-  else if (type === 'saved') filtered = repos.filter(r => saved.has(r.name));
-  renderRepos(filtered);
-}
-
-function toggleConfig() {
-  const el = document.getElementById('configArea');
-  el.classList.toggle('show');
-}
-
-function saveKey() {
-  const k = document.getElementById('groqKey').value;
-  if (k) { localStorage.setItem('groqKey', k); alert('API key saved locally ✓'); }
-}
-
-function triggerRefresh() {
-  const btn = document.querySelector('.btn-accent');
-  btn.innerHTML = '<span class="refresh-spin">↻</span> Fetching...';
-  setTimeout(() => {
-    btn.textContent = '↻ Refresh';
-    document.querySelector('.stat-val').textContent = '2,851';
-  }, 2000);
-}
-
-const style = document.createElement('style');
-style.textContent = `@keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }`;
-document.head.appendChild(style);
-
-renderRepos(repos);
-renderTrending();
-</script>
+<script src="script.js"></script>
+</body>
+</html>
