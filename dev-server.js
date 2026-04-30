@@ -48,9 +48,10 @@ server.listen(port, () => {
 
 function serveStatic(pathname, res) {
   const safePath = pathname === "/" ? "/index.html" : pathname;
-  const filePath = path.join(ROOT, safePath.replace(/^\/+/, ""));
+  const publicDir = path.join(ROOT, "public");
+  const filePath = path.join(publicDir, safePath.replace(/^\/+/, ""));
 
-  if (!filePath.startsWith(ROOT)) {
+  if (!filePath.startsWith(publicDir)) {
     res.statusCode = 403;
     res.end("Forbidden");
     return;
