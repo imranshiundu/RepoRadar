@@ -1,5 +1,8 @@
 import {
+  clearAnalysisFailure,
+  getAnalysisFailures,
   appendHistory,
+  getCachedAnalysis,
   formatTime,
   getAnalyses,
   getCatalogMap,
@@ -11,14 +14,18 @@ import {
   getSavedSet,
   getSettings,
   mergeAnalysesIntoItems,
+  getRecentAnalysisFailure,
+  hasRichAnalysis,
   setAnalyses,
+  setAnalysisFailures,
   setIgnoredSet,
   setLatestSnapshot,
   setSavedSet,
+  stampAnalysis,
   sourceLabel,
   upsertCatalog
 } from "./runtime.js";
-import { analyzeWithAvailableRuntime, discoverData } from "./data.js";
+import { analyzeWithAvailableRuntime, discoverData, getAnalysisRuntime } from "./data.js";
 import {
   decorateItemsWithWatchlist,
   findNewWatchlistMatches,
@@ -32,6 +39,7 @@ const state = {
   ignored: getIgnoredSet(),
   queued: getQueuedSet(),
   analyses: getAnalyses(),
+  analysisFailures: getAnalysisFailures(),
   history: getHistory(),
   latestSnapshot: getLatestSnapshot(),
   sourceHealth: {},
@@ -148,8 +156,9 @@ async function syncData({ manual }) {
 
 async function analyzeTopItems({ silentIfUnavailable = false } = {}) {
   const targets = [...state.items]
-    .filter((item) => !state.analyses[item.id])
-    .sort((a, b) => scoreForPersonalized(b) - scoreForPersonalized(a))
+    .filter((item) => !hasRichAnalysis(item, state.analyses))
+    .filter((item) => !getRecentAnalysisFailure(item, state.analysisFailures))
+    .sort((a, b) => analysisPriority(b) - analysisPriority(a))
     .slice(0, 4);
 
   if (!targets.length) {
@@ -161,9 +170,12 @@ async function analyzeTopItems({ silentIfUnavailable = false } = {}) {
     updateAiStatus("Analyzing...");
     const results = await analyzeWithAvailableRuntime(targets, getSettings());
     for (const item of results) {
-      state.analyses[item.id] = item;
+      const sourceItem = targets.find((entry) => entry.id === item.id);
+      state.analyses[item.id] = stampAnalysis(sourceItem, item);
+      state.analysisFailures = clearAnalysisFailure(sourceItem, state.analysisFailures);
     }
     setAnalyses(state.analyses);
+    setAnalysisFailures(state.analysisFailures);
     state.items = decorateItemsWithWatchlist(
       mergeAnalysesIntoItems(state.items, state.analyses),
       getSettings()
@@ -232,8 +244,7 @@ function renderPersonalized(items) {
         <span class="source-pill">${sourceLabel(item.source)}</span>
         <span class="metric-pill">${item.metricLabel}: ${item.metricValue}</span>
       </div>
-      <div class="ai-card-title" style="margin-top: 0.35rem;">${item.name}</div>
-      <div class="ai-card-title" style="display:none;">${item.translatedTitle || ""}</div>
+      <div class="ai-card-title" style="margin-top: 0.35rem;">${item.translatedTitle || item.name}</div>
       <div class="mini-copy">${item.owner || "Unknown"} · ${item.language || "Mixed"}</div>
       <div class="tag-row" style="margin-top: 0.45rem;">
         ${item.matchesWatchlist ? `<span class="tag" style="background: var(--brand-soft); color: var(--brand);">watchlist</span>` : ""}
@@ -264,8 +275,10 @@ function renderPersonalized(items) {
       try {
         const results = await analyzeWithAvailableRuntime([item], getSettings());
         if (results.length) {
-          state.analyses[item.id] = results[0];
+          state.analyses[item.id] = stampAnalysis(item, results[0]);
+          state.analysisFailures = clearAnalysisFailure(item, state.analysisFailures);
           setAnalyses(state.analyses);
+          setAnalysisFailures(state.analysisFailures);
           state.items = decorateItemsWithWatchlist(
             mergeAnalysesIntoItems(state.items, state.analyses),
             getSettings()
@@ -273,6 +286,8 @@ function renderPersonalized(items) {
           render();
         }
       } catch (error) {
+        state.analysisFailures = recordPageFailure(item, state.analysisFailures, error.message);
+        setAnalysisFailures(state.analysisFailures);
         updateAiStatus(error.message || "AI error");
       } finally {
         button.disabled = false;
@@ -399,6 +414,7 @@ function renderSourceHealth(sourceHealth) {
 
 function renderNewsFeed(items) {
   const newest = [...items]
+    .filter((item) => !state.ignored.has(item.id))
     .sort((a, b) => (b.scores?.trend || 0) - (a.scores?.trend || 0))
     .slice(0, 8);
 
@@ -409,7 +425,6 @@ function renderNewsFeed(items) {
   }
 
   newest.forEach((item) => {
-    if (state.ignored.has(item.id)) return;
     const node = document.createElement("article");
     node.className = "news-item";
     node.innerHTML = `
@@ -460,6 +475,21 @@ function summarizeSources(items) {
 
 function scoreForPersonalized(item) {
   return (item.scores?.trend || 0) + (item.scores?.money || 0) * 0.45 + (item.aiSummary ? 8 : 0) + (item.matchesWatchlist ? 18 : 0);
+}
+
+function analysisPriority(item) {
+  const translationBoost = ["Chinese", "Japanese", "Korean"].includes(item.language) ? 30 : 0;
+  return scoreForPersonalized(item) + translationBoost + (item.preferenceScore || 0);
+}
+
+function recordPageFailure(item, failures, message) {
+  return {
+    ...failures,
+    [item.id]: {
+      message: String(message || "Analysis failed"),
+      failedAt: Date.now()
+    }
+  };
 }
 
 function toggleSetMembership(set, id, persist) {

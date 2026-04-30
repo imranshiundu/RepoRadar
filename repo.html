@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RepoRadar - Repository Brief</title>
+  <meta name="description" content="AI repository brief with translation, use cases, and fit analysis.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="scrollable-page">
+  <header class="topbar">
+    <a class="brand" href="/index.html">
+      <span class="brand-mark">RR</span>
+      <strong class="brand-name">RepoRadar</strong>
+    </a>
+    <nav class="main-nav">
+      <a class="nav-link" href="/index.html">Dash</a>
+      <a class="nav-link" href="/recents.html">Recents</a>
+      <a class="nav-link" href="/repositories.html">Repos</a>
+      <a class="nav-link" href="/catalog.html">Log</a>
+      <a class="nav-link" href="/settings.html">Set</a>
+    </nav>
+    <div class="topbar-actions">
+      <div class="status-pill" id="detailStatus">Loading...</div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="page-header">
+      <p class="eyebrow">AI Brief</p>
+      <h1 id="detailTitle">Repository Brief</h1>
+      <p class="hero-copy" id="detailSubtitle">Loading repository details...</p>
+    </section>
+
+    <section class="detail-grid">
+      <div class="detail-stack">
+        <section class="panel detail-section">
+          <div class="card-top">
+            <span class="source-pill" id="detailSource">Source</span>
+            <span class="metric-pill" id="detailMetric"></span>
+          </div>
+          <div class="tag-row" id="detailTags" style="margin-top: 0.45rem;"></div>
+          <div class="score-row" id="detailScores"></div>
+          <p class="repo-desc" id="detailDesc" style="display: block; overflow: visible; -webkit-line-clamp: unset;"></p>
+        </section>
+
+        <section class="panel detail-section">
+          <p class="panel-kicker">AI Summary</p>
+          <h2 class="panel-title">English Brief</h2>
+          <p class="small-copy" id="translatedSummary">Waiting for analysis...</p>
+        </section>
+
+        <section class="panel detail-section">
+          <p class="panel-kicker">Fit</p>
+          <h2 class="panel-title">Use Cases</h2>
+          <ul class="detail-list" id="useCasesList"></ul>
+        </section>
+
+        <section class="panel detail-section">
+          <p class="panel-kicker">Positioning</p>
+          <h2 class="panel-title">Opportunity</h2>
+          <p class="small-copy" id="detailOpportunity">No opportunity brief yet.</p>
+          <h2 class="panel-title" style="margin-top: 0.5rem;">Audience</h2>
+          <p class="small-copy" id="detailAudience">No audience summary yet.</p>
+          <h2 class="panel-title" style="margin-top: 0.5rem;">Why Now</h2>
+          <p class="small-copy" id="detailWhyNow">No timing note yet.</p>
+        </section>
+
+        <section class="panel detail-section">
+          <p class="panel-kicker">Execution</p>
+          <h2 class="panel-title">Weekend MVP</h2>
+          <p class="small-copy" id="detailMvp">No MVP note yet.</p>
+          <h2 class="panel-title" style="margin-top: 0.5rem;">Risks</h2>
+          <ul class="detail-list" id="risksList"></ul>
+        </section>
+      </div>
+
+      <aside class="detail-stack">
+        <section class="panel detail-section">
+          <p class="panel-kicker">Actions</p>
+          <div class="card-actions">
+            <button class="btn btn-strong" id="saveBtn" type="button">Save</button>
+            <button class="btn" id="ignoreBtn" type="button">Ignore</button>
+            <button class="btn" id="analyzeBtn" type="button">Re-Analyze</button>
+            <button class="btn" id="openBtn" type="button">Open Source</button>
+          </div>
+        </section>
+
+        <section class="panel detail-section">
+          <p class="panel-kicker">Signals</p>
+          <h2 class="panel-title">Ignore Patterns</h2>
+          <ul class="detail-list" id="ignoreSignalsList"></ul>
+        </section>
+
+        <section class="panel detail-section">
+          <p class="panel-kicker">Metadata</p>
+          <div class="meta-list">
+            <div class="mini-stat">
+              <span class="mini-stat-label">Owner</span>
+              <strong class="mini-stat-value" id="detailOwner">-</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Language</span>
+              <strong class="mini-stat-value" id="detailLanguage">-</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">First Seen</span>
+              <strong class="mini-stat-value" id="detailFirstSeen">-</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Last Seen</span>
+              <strong class="mini-stat-value" id="detailLastSeen">-</strong>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="/repo.js"></script>
+</body>
+</html>

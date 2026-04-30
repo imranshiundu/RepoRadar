@@ -1,15 +1,21 @@
 import {
+  clearAnalysisFailure,
+  getAnalysisFailures,
   getAnalyses,
   getCatalogMap,
+  getRecentAnalysisFailure,
+  hasRichAnalysis,
   getIgnoredSet,
   getLatestSnapshot,
   getSavedSet,
   getSettings,
   mergeAnalysesIntoItems,
   setAnalyses,
+  setAnalysisFailures,
   setIgnoredSet,
   setLatestSnapshot,
   setSavedSet,
+  stampAnalysis,
   sourceLabel,
   upsertCatalog
 } from "./runtime.js";
@@ -26,6 +32,7 @@ const state = {
   saved: getSavedSet(),
   ignored: getIgnoredSet(),
   analyses: getAnalyses(),
+  analysisFailures: getAnalysisFailures(),
   chip: "all",
   search: "",
   sort: "new",
@@ -106,11 +113,37 @@ async function syncData() {
       ? `Ready · ${watchlistHits.length} hit${watchlistHits.length === 1 ? "" : "s"}`
       : "Ready";
     render();
+    if (state.settings.automation.autoAnalyze) {
+      analyzePriorityItems().catch(console.error);
+    }
   } catch (err) {
     els.syncStatus.textContent = "Error";
   } finally {
     els.refreshBtn.disabled = false;
   }
+}
+
+async function analyzePriorityItems() {
+  const targets = visibleItems()
+    .filter((item) => !hasRichAnalysis(item, state.analyses))
+    .filter((item) => !getRecentAnalysisFailure(item, state.analysisFailures))
+    .sort((a, b) => priorityForAnalysis(b) - priorityForAnalysis(a))
+    .slice(0, 4);
+
+  if (!targets.length) return;
+  const results = await analyzeWithAvailableRuntime(targets, getSettings());
+  for (const item of results) {
+    const sourceItem = targets.find((entry) => entry.id === item.id);
+    state.analyses[item.id] = stampAnalysis(sourceItem, item);
+    state.analysisFailures = clearAnalysisFailure(sourceItem, state.analysisFailures);
+  }
+  setAnalyses(state.analyses);
+  setAnalysisFailures(state.analysisFailures);
+  state.items = decorateItemsWithWatchlist(
+    mergeAnalysesIntoItems(state.items, state.analyses),
+    getSettings()
+  );
+  render();
 }
 
 function visibleItems() {
@@ -224,8 +257,10 @@ function render() {
       try {
         const results = await analyzeWithAvailableRuntime([item], getSettings());
         if (results.length) {
-          state.analyses[item.id] = results[0];
+          state.analyses[item.id] = stampAnalysis(item, results[0]);
+          state.analysisFailures = clearAnalysisFailure(item, state.analysisFailures);
           setAnalyses(state.analyses);
+          setAnalysisFailures(state.analysisFailures);
           state.items = decorateItemsWithWatchlist(
             mergeAnalysesIntoItems(state.items, state.analyses),
             getSettings()
@@ -233,6 +268,11 @@ function render() {
           render();
         }
       } catch (err) {
+        state.analysisFailures[item.id] = {
+          message: String(err.message || "Analysis failed"),
+          failedAt: Date.now()
+        };
+        setAnalysisFailures(state.analysisFailures);
         console.error(err);
       } finally {
         btn.disabled = false;
@@ -277,4 +317,9 @@ function compareItems(a, b, catalog) {
   }
 
   return (catalog[b.id]?.lastSeenAt || 0) - (catalog[a.id]?.lastSeenAt || 0);
+}
+
+function priorityForAnalysis(item) {
+  const translationBoost = ["Chinese", "Japanese", "Korean"].includes(item.language) ? 30 : 0;
+  return (item.scores?.trend || 0) + (item.preferenceScore || 0) + translationBoost + (item.matchesWatchlist ? 18 : 0);
 }

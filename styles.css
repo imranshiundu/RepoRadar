@@ -561,6 +561,10 @@ select {
   font-family: var(--font-head);
   font-size: 1rem;
   line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .repo-owner {

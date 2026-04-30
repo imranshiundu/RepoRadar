@@ -70,6 +70,12 @@ export async function analyzeWithAvailableRuntime(items, settings) {
   throw new Error("Add a Groq key in Settings or run the optional server API");
 }
 
+export function getAnalysisRuntime(settings) {
+  if (settings.keys.groqApiKey) return "browser-groq";
+  if (settings.automation.preferServer) return "server";
+  return "none";
+}
+
 async function fetchServerDiscover(activeSources) {
   const params = new URLSearchParams({ sources: activeSources.join(",") });
   const response = await fetch(`/api/discover?${params.toString()}`, { cache: "no-store" });
@@ -133,10 +139,10 @@ async function analyzeWithGroqBrowser(items, settings) {
     id: item.id,
     translatedTitle: cleanText(item.translatedTitle || ""),
     translatedSummary: cleanText(item.translatedSummary || item.summary || ""),
-    summary: item.summary || item.opportunity || "Summary unavailable.",
-    opportunity: item.opportunity || "",
-    audience: item.audience || "",
-    weekendMvp: item.weekendMvp || "",
+    summary: cleanText(item.summary || item.opportunity || "Summary unavailable."),
+    opportunity: cleanText(item.opportunity || ""),
+    audience: cleanText(item.audience || ""),
+    weekendMvp: cleanText(item.weekendMvp || ""),
     useCases: normalizeStringArray(item.useCases),
     whyNow: cleanText(item.whyNow || ""),
     risks: normalizeStringArray(item.risks),

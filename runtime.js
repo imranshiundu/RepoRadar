@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   queued: "repo-radar.queued.v2",
   ignored: "repo-radar.ignored.v1",
   analyses: "repo-radar.analyses.v2",
+  analysisFailures: "repo-radar.analysis-failures.v1",
   latest: "repo-radar.latest.v2",
   catalog: "repo-radar.catalog.v2",
   history: "repo-radar.history.v2",
@@ -100,6 +101,14 @@ export function getAnalyses() {
 
 export function setAnalyses(map) {
   saveJson(STORAGE_KEYS.analyses, map);
+}
+
+export function getAnalysisFailures() {
+  return loadJson(STORAGE_KEYS.analysisFailures, {});
+}
+
+export function setAnalysisFailures(map) {
+  saveJson(STORAGE_KEYS.analysisFailures, map);
 }
 
 export function getLatestSnapshot() {
@@ -310,6 +319,73 @@ export function parseKeywordList(value) {
     .split(",")
     .map((part) => part.trim().toLowerCase())
     .filter(Boolean);
+}
+
+export function analysisFingerprint(item) {
+  return [
+    item.id,
+    item.name,
+    item.desc,
+    item.rawDesc,
+    item.language,
+    item.metricLabel,
+    item.metricValue
+  ].map((value) => String(value || "").trim()).join("|");
+}
+
+export function stampAnalysis(item, analysis) {
+  return {
+    ...analysis,
+    _fingerprint: analysisFingerprint(item),
+    _cachedAt: Date.now()
+  };
+}
+
+export function getCachedAnalysis(item, analyses) {
+  const analysis = analyses[item.id];
+  if (!analysis) return null;
+
+  const fingerprint = analysisFingerprint(item);
+  if (analysis._fingerprint && analysis._fingerprint !== fingerprint) {
+    return null;
+  }
+
+  return analysis;
+}
+
+export function hasRichAnalysis(item, analyses) {
+  const analysis = getCachedAnalysis(item, analyses);
+  if (!analysis) return false;
+
+  const hasEnglishSummary = Boolean(analysis.translatedSummary || analysis.summary);
+  const hasUseCases = Array.isArray(analysis.useCases) && analysis.useCases.length > 0;
+  return hasEnglishSummary && hasUseCases;
+}
+
+export function recordAnalysisFailure(item, failures, message) {
+  return {
+    ...failures,
+    [item.id]: {
+      message: String(message || "Analysis failed"),
+      fingerprint: analysisFingerprint(item),
+      failedAt: Date.now()
+    }
+  };
+}
+
+export function clearAnalysisFailure(item, failures) {
+  if (!failures[item.id]) return failures;
+  const next = { ...failures };
+  delete next[item.id];
+  return next;
+}
+
+export function getRecentAnalysisFailure(item, failures, cooldownMs = 10 * 60 * 1000) {
+  const entry = failures[item.id];
+  if (!entry) return null;
+  if (entry.fingerprint && entry.fingerprint !== analysisFingerprint(item)) return null;
+  if (Date.now() - Number(entry.failedAt || 0) > cooldownMs) return null;
+  return entry;
 }
 
 export function buildPreferenceProfile(catalogMap, savedSet, ignoredSet) {
