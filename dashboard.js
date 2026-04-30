@@ -2,6 +2,7 @@ import {
   appendHistory,
   formatTime,
   getAnalyses,
+  getCatalogMap,
   getCatalogRows,
   getHistory,
   getLatestSnapshot,
@@ -11,12 +12,16 @@ import {
   mergeAnalysesIntoItems,
   setAnalyses,
   setLatestSnapshot,
-  setQueuedSet,
   setSavedSet,
   sourceLabel,
   upsertCatalog
 } from "./runtime.js";
 import { analyzeWithAvailableRuntime, discoverData } from "./data.js";
+import {
+  decorateItemsWithWatchlist,
+  findNewWatchlistMatches,
+  publishWatchlistAlerts
+} from "./watchlist.js";
 
 const state = {
   settings: getSettings(),
@@ -27,9 +32,6 @@ const state = {
   history: getHistory(),
   latestSnapshot: getLatestSnapshot(),
   sourceHealth: {},
-  view: "all",
-  chip: "all",
-  search: "",
   refreshTimer: null,
   runtimeMode: "Waiting..."
 };
@@ -38,28 +40,26 @@ const els = {
   syncStatus: document.getElementById("syncStatus"),
   refreshBtn: document.getElementById("refreshBtn"),
   analyzeTopBtn: document.getElementById("analyzeTopBtn"),
-  runtimeMode: document.getElementById("runtimeMode"),
   aiStatus: document.getElementById("aiStatus"),
-  lastSyncStatus: document.getElementById("lastSyncStatus"),
+  aiBriefing: document.getElementById("aiBriefing"),
   automationStatus: document.getElementById("automationStatus"),
-  searchInput: document.getElementById("searchInput"),
-  repoGrid: document.getElementById("repoGrid"),
-  cardTemplate: document.getElementById("cardTemplate"),
-  sourceChart: document.getElementById("sourceChart"),
-  historyChart: document.getElementById("historyChart"),
-  liveFeed: document.getElementById("liveFeed"),
-  trendingList: document.getElementById("trendingList"),
-  sourceHealth: document.getElementById("sourceHealth"),
+  lastSyncStatus: document.getElementById("lastSyncStatus"),
+  runtimeMode: document.getElementById("runtimeMode"),
   statItems: document.getElementById("statItems"),
   statCatalog: document.getElementById("statCatalog"),
   statSources: document.getElementById("statSources"),
   statAnalyzed: document.getElementById("statAnalyzed"),
   statNew: document.getElementById("statNew"),
-  allCount: document.getElementById("allCount"),
   savedCount: document.getElementById("savedCount"),
   queueCount: document.getElementById("queueCount"),
+  watchlistCount: document.getElementById("watchlistCount"),
   moneyCount: document.getElementById("moneyCount"),
-  aiCount: document.getElementById("aiCount")
+  personalizedGrid: document.getElementById("personalizedGrid"),
+  sourceChart: document.getElementById("sourceChart"),
+  historyChart: document.getElementById("historyChart"),
+  trendingList: document.getElementById("trendingList"),
+  sourceHealth: document.getElementById("sourceHealth"),
+  newsFeed: document.getElementById("newsFeed")
 };
 
 boot();
@@ -70,61 +70,51 @@ function boot() {
   render();
   syncData({ manual: false });
   applyAutoRefresh();
-  registerServiceWorker();
 }
 
 function wireUi() {
   els.refreshBtn.addEventListener("click", () => syncData({ manual: true }));
   els.analyzeTopBtn.addEventListener("click", () => analyzeTopItems());
-  els.searchInput.addEventListener("input", (event) => {
-    state.search = event.target.value.trim().toLowerCase();
-    render();
-  });
-
-  document.querySelectorAll("[data-view]").forEach((button) => {
-    button.addEventListener("click", () => {
-      document.querySelectorAll("[data-view]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      state.view = button.dataset.view;
-      render();
-    });
-  });
-
-  document.querySelectorAll("[data-chip]").forEach((button) => {
-    button.addEventListener("click", () => {
-      document.querySelectorAll("[data-chip]").forEach((item) => item.classList.remove("chip-on"));
-      button.classList.add("chip-on");
-      state.chip = button.dataset.chip;
-      render();
-    });
-  });
 }
 
 function hydrateCachedData() {
   const snapshot = getLatestSnapshot();
   if (!snapshot?.items?.length) return;
-  state.items = mergeAnalysesIntoItems(snapshot.items, state.analyses);
+  state.items = decorateItemsWithWatchlist(
+    mergeAnalysesIntoItems(snapshot.items, state.analyses),
+    getSettings()
+  );
   state.sourceHealth = snapshot.sourceHealth || {};
   state.runtimeMode = snapshot.runtimeMode || "Cached data";
 }
 
 async function syncData({ manual }) {
-  setStatus(manual ? "Refreshing live sources..." : "Syncing live sources...");
+  setStatus(manual ? "Syncing..." : "Auto-sync...");
   els.refreshBtn.disabled = true;
 
   try {
     state.settings = getSettings();
+    const previousCatalog = getCatalogMap();
     const payload = await discoverData(state.settings);
     state.runtimeMode = payload.runtimeMode;
     state.sourceHealth = payload.sourceHealth || {};
-    state.items = mergeAnalysesIntoItems(payload.items || [], state.analyses);
+    state.items = decorateItemsWithWatchlist(
+      mergeAnalysesIntoItems(payload.items || [], state.analyses),
+      state.settings
+    );
 
     const catalogResult = upsertCatalog(state.items);
+    const watchlistHits = publishWatchlistAlerts(
+      findNewWatchlistMatches(state.items, previousCatalog, state.settings),
+      state.settings
+    );
+
     state.latestSnapshot = {
       syncedAt: Date.now(),
       runtimeMode: state.runtimeMode,
       sourceHealth: state.sourceHealth,
-      items: state.items
+      items: state.items,
+      newCount: catalogResult.newCount
     };
     setLatestSnapshot(state.latestSnapshot);
 
@@ -135,7 +125,11 @@ async function syncData({ manual }) {
       sources: summarizeSources(state.items)
     });
 
-    setStatus(`Loaded ${state.items.length} rows using ${state.runtimeMode}`);
+    setStatus(
+      watchlistHits.length
+        ? `Ready · ${watchlistHits.length} watch hit${watchlistHits.length === 1 ? "" : "s"}`
+        : "Ready"
+    );
     render(catalogResult.newCount);
 
     if (state.settings.automation.autoAnalyze) {
@@ -150,8 +144,9 @@ async function syncData({ manual }) {
 }
 
 async function analyzeTopItems({ silentIfUnavailable = false } = {}) {
-  const targets = visibleItems()
+  const targets = [...state.items]
     .filter((item) => !state.analyses[item.id])
+    .sort((a, b) => scoreForPersonalized(b) - scoreForPersonalized(a))
     .slice(0, 4);
 
   if (!targets.length) {
@@ -160,320 +155,251 @@ async function analyzeTopItems({ silentIfUnavailable = false } = {}) {
   }
 
   try {
-    updateAiStatus("Analyzing top cards...");
+    updateAiStatus("Analyzing...");
     const results = await analyzeWithAvailableRuntime(targets, getSettings());
     for (const item of results) {
       state.analyses[item.id] = item;
     }
     setAnalyses(state.analyses);
-    state.items = mergeAnalysesIntoItems(state.items, state.analyses);
-
+    state.items = decorateItemsWithWatchlist(
+      mergeAnalysesIntoItems(state.items, state.analyses),
+      getSettings()
+    );
     const latest = getLatestSnapshot();
     if (latest?.items) {
       latest.items = state.items;
       setLatestSnapshot(latest);
     }
-
-    const catalog = upsertCatalog(state.items);
-    render(catalog.newCount);
+    render();
   } catch (error) {
     if (!silentIfUnavailable) {
-      updateAiStatus(error.message || "AI analysis failed");
+      updateAiStatus(error.message || "AI error");
     } else {
       updateAiStatus();
     }
   }
 }
 
-function visibleItems() {
-  return state.items
-    .filter(matchesView)
-    .filter(matchesChip)
-    .filter(matchesSearch)
-    .sort((left, right) => (right.scores?.trend || 0) - (left.scores?.trend || 0));
-}
-
-function matchesView(item) {
-  if (state.view === "all") return true;
-  if (state.view === "saved") return state.saved.has(item.id);
-  if (state.view === "queued") return state.queued.has(item.id);
-  if (state.view === "money") return (item.scores?.money || 0) >= 72;
-  if (state.view === "ai") return item.tags?.includes("ai");
-  return item.source === state.view;
-}
-
-function matchesChip(item) {
-  if (state.chip === "all") return true;
-  if (state.chip === "money") return item.tags?.includes("money");
-  return item.tags?.includes(state.chip);
-}
-
-function matchesSearch(item) {
-  if (!state.search) return true;
-  const haystack = [
-    item.name,
-    item.owner,
-    item.desc,
-    item.aiSummary,
-    item.source,
-    ...(item.tags || [])
-  ].join(" ").toLowerCase();
-  return haystack.includes(state.search);
-}
-
 function render(newCount = state.latestSnapshot?.newCount || 0) {
-  const items = visibleItems();
   const catalogRows = getCatalogRows();
+  const watchlistMatches = state.items.filter((item) => item.matchesWatchlist);
+  const highValue = state.items.filter((item) => (item.scores?.money || 0) >= 72);
 
-  els.runtimeMode.textContent = state.runtimeMode;
-  els.lastSyncStatus.textContent = formatTime(state.latestSnapshot?.syncedAt);
-  els.automationStatus.textContent = buildAutomationSummary(getSettings());
-
-  els.statItems.textContent = String(items.length);
+  els.statItems.textContent = String(state.items.length);
   els.statCatalog.textContent = String(catalogRows.length);
   els.statSources.textContent = String(Object.values(getSettings().sources).filter(Boolean).length);
   els.statAnalyzed.textContent = String(Object.keys(state.analyses).length);
   els.statNew.textContent = String(newCount);
-
-  els.allCount.textContent = String(state.items.length);
   els.savedCount.textContent = String(state.saved.size);
   els.queueCount.textContent = String(state.queued.size);
-  els.moneyCount.textContent = String(state.items.filter((item) => (item.scores?.money || 0) >= 72).length);
-  els.aiCount.textContent = String(state.items.filter((item) => item.tags?.includes("ai")).length);
+  els.watchlistCount.textContent = String(watchlistMatches.length);
+  els.moneyCount.textContent = String(highValue.length);
+  els.automationStatus.textContent = buildAutomationSummary(getSettings());
+  els.lastSyncStatus.textContent = formatTime(state.latestSnapshot?.syncedAt);
+  els.runtimeMode.textContent = state.runtimeMode;
 
-  if (els.repoGrid) renderCards(items);
+  renderPersonalized(state.items);
   renderSourceChart(state.items);
   renderHistoryChart(state.history);
-  renderFeed(state.items);
-  renderTrending(items);
+  renderTrending(state.items);
   renderSourceHealth(state.sourceHealth);
+  renderNewsFeed(state.items);
   updateAiStatus();
+  updateAiBriefing(state.items, watchlistMatches.length);
 }
 
-function renderCards(items) {
-  els.repoGrid.innerHTML = "";
-  if (!items.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "No rows match the current filters yet.";
-    els.repoGrid.appendChild(empty);
+function renderPersonalized(items) {
+  const recommendations = [...items]
+    .sort((a, b) => scoreForPersonalized(b) - scoreForPersonalized(a))
+    .slice(0, 4);
+
+  els.personalizedGrid.innerHTML = "";
+  if (!recommendations.length) {
+    els.personalizedGrid.innerHTML = `<div class="panel">No recommendations yet. Run a sync.</div>`;
     return;
   }
 
-  for (const item of items) {
-    const node = els.cardTemplate.content.firstElementChild.cloneNode(true);
+  recommendations.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "ai-card";
     const isSaved = state.saved.has(item.id);
-    const isQueued = state.queued.has(item.id);
-
-    node.querySelector(".source-pill").textContent = sourceLabel(item.source);
-    node.querySelector(".metric-pill").textContent = `${item.metricLabel}: ${item.metricValue}`;
-    node.querySelector(".repo-name").textContent = item.name;
-    node.querySelector(".repo-owner").textContent = `${item.owner || "Unknown"} · ${item.language || "Mixed"}`;
-    node.querySelector(".repo-desc").textContent = item.desc;
-
-    const tagRow = node.querySelector(".tag-row");
-    for (const tag of item.tags || []) {
-      const tagEl = document.createElement("span");
-      tagEl.className = "tag";
-      tagEl.textContent = tag;
-      tagRow.appendChild(tagEl);
-    }
-
-    const analysis = node.querySelector(".analysis-box");
-    if (item.aiSummary) {
-      analysis.textContent = item.aiSummary;
-    } else {
-      analysis.classList.add("loading");
-      analysis.textContent = "Pending AI summary";
-    }
-
-    const scoreRow = node.querySelector(".score-row");
-    scoreRow.appendChild(makeScorePill("Trend", item.scores?.trend || 0));
-    scoreRow.appendChild(makeScorePill("Learn", item.scores?.learn || 0));
-    scoreRow.appendChild(makeScorePill("Money", item.scores?.money || 0));
-
-    node.querySelector(".meta-row").innerHTML = `
-      <span>${item.relativeTime || "recent"}</span>
-      <span>${item.url ? "open link ready" : "no link"}</span>
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="source-pill">${sourceLabel(item.source)}</span>
+        <span class="metric-pill">${item.metricLabel}: ${item.metricValue}</span>
+      </div>
+      <div class="ai-card-title" style="margin-top: 0.35rem;">${item.name}</div>
+      <div class="mini-copy">${item.owner || "Unknown"} · ${item.language || "Mixed"}</div>
+      <div class="tag-row" style="margin-top: 0.45rem;">
+        ${item.matchesWatchlist ? `<span class="tag" style="background: var(--brand-soft); color: var(--brand);">watchlist</span>` : ""}
+        ${(item.tags || []).slice(0, 3).map((tag) => `<span class="tag">${tag}</span>`).join("")}
+      </div>
+      <div class="ai-card-note">${item.aiSummary || item.desc || "AI summary pending."}</div>
+      <div class="score-row" style="margin-top: 0.45rem;">
+        <span class="score-pill">Trend ${Math.round(item.scores?.trend || 0)}</span>
+        <span class="score-pill">Money ${Math.round(item.scores?.money || 0)}</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn ${isSaved ? "btn-strong" : ""}" data-action="save" type="button">${isSaved ? "Saved" : "Save"}</button>
+        <button class="btn" data-action="ai" type="button">AI</button>
+        <button class="btn btn-strong" data-action="open" type="button">Open</button>
+      </div>
     `;
 
-    const saveBtn = node.querySelector(".save-btn");
-    saveBtn.classList.toggle("active-state", isSaved);
-    saveBtn.textContent = isSaved ? "Saved" : "Save";
-    saveBtn.addEventListener("click", () => {
+    card.querySelector('[data-action="save"]').addEventListener("click", () => {
       toggleSetMembership(state.saved, item.id, setSavedSet);
       render();
     });
 
-    const queueBtn = node.querySelector(".queue-btn");
-    queueBtn.classList.toggle("active-state", isQueued);
-    queueBtn.textContent = isQueued ? "Queued" : "Queue";
-    queueBtn.addEventListener("click", () => {
-      toggleSetMembership(state.queued, item.id, setQueuedSet);
-      render();
-    });
-
-    node.querySelector(".analyze-btn").addEventListener("click", async () => {
+    card.querySelector('[data-action="ai"]').addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = "...";
       try {
-        updateAiStatus("Analyzing one card...");
         const results = await analyzeWithAvailableRuntime([item], getSettings());
-        for (const result of results) {
-          state.analyses[result.id] = result;
+        if (results.length) {
+          state.analyses[item.id] = results[0];
+          setAnalyses(state.analyses);
+          state.items = decorateItemsWithWatchlist(
+            mergeAnalysesIntoItems(state.items, state.analyses),
+            getSettings()
+          );
+          render();
         }
-        setAnalyses(state.analyses);
-        state.items = mergeAnalysesIntoItems(state.items, state.analyses);
-        upsertCatalog(state.items);
-        render();
       } catch (error) {
-        updateAiStatus(error.message || "Analysis failed");
+        updateAiStatus(error.message || "AI error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "AI";
       }
     });
 
-    node.querySelector(".visit-btn").addEventListener("click", () => {
+    card.querySelector('[data-action="open"]').addEventListener("click", () => {
       window.open(item.url, "_blank", "noopener,noreferrer");
     });
 
-    els.repoGrid.appendChild(node);
-  }
+    els.personalizedGrid.appendChild(card);
+  });
 }
 
 function renderSourceChart(items) {
   if (!items.length) {
-    els.sourceChart.innerHTML = `<div class="empty-state">Source chart will appear after the first sync.</div>`;
+    els.sourceChart.innerHTML = `<div class="mini-copy" style="padding: 0.55rem;">No source data yet.</div>`;
     return;
   }
 
   const sourceCounts = Object.entries(summarizeSources(items));
   const max = Math.max(...sourceCounts.map(([, value]) => value), 1);
-  const width = 560;
-  const height = 180;
-  const gap = 18;
-  const barWidth = Math.max(44, Math.floor((width - gap * (sourceCounts.length + 1)) / sourceCounts.length));
+  const width = 400;
+  const height = 140;
+  const gap = 10;
+  const barWidth = Math.floor((width - gap * (sourceCounts.length + 1)) / sourceCounts.length);
 
   const bars = sourceCounts.map(([source, count], index) => {
     const x = gap + index * (barWidth + gap);
-    const barHeight = Math.round((count / max) * 120);
-    const y = 140 - barHeight;
+    const barHeight = Math.round((count / max) * 92);
+    const y = 110 - barHeight;
     return `
-      <rect class="svg-bar" x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="12"></rect>
-      <text class="svg-label" x="${x + barWidth / 2}" y="158" text-anchor="middle">${sourceLabel(source)}</text>
-      <text class="svg-label" x="${x + barWidth / 2}" y="${y - 8}" text-anchor="middle">${count}</text>
+      <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="4" class="svg-bar"></rect>
+      <text x="${x + barWidth / 2}" y="108" text-anchor="middle" class="svg-label">${count}</text>
+      <text x="${x + barWidth / 2}" y="128" text-anchor="middle" class="svg-label">${sourceLabel(source)}</text>
     `;
   }).join("");
 
-  els.sourceChart.innerHTML = `
-    <svg class="svg-chart" viewBox="0 0 ${width} ${height}" aria-label="Source chart">
-      ${bars}
-    </svg>
-  `;
+  els.sourceChart.innerHTML = `<svg class="svg-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${bars}</svg>`;
 }
 
 function renderHistoryChart(history) {
   if (!history.length) {
-    els.historyChart.innerHTML = `<div class="empty-state">Sync history will appear after the first refresh.</div>`;
+    els.historyChart.innerHTML = `<div class="mini-copy" style="padding: 0.55rem;">No sync history yet.</div>`;
     return;
   }
 
-  const width = 560;
-  const height = 180;
+  const width = 400;
+  const height = 140;
   const values = history.map((entry) => entry.total);
   const max = Math.max(...values, 1);
   const stepX = width / Math.max(values.length - 1, 1);
-
   const points = values.map((value, index) => {
     const x = index * stepX;
-    const y = 145 - (value / max) * 110;
+    const y = 110 - (value / max) * 88;
     return [x, y];
   });
-
   const line = points.map(([x, y]) => `${x},${y}`).join(" ");
-  const area = `0,145 ${line} ${width},145`;
-  const dots = points.map(([x, y]) => `<circle class="svg-dot" cx="${x}" cy="${y}" r="4"></circle>`).join("");
-  const labels = history.map((entry, index) => {
-    const x = index * stepX;
-    return `<text class="svg-label" x="${x}" y="170" text-anchor="${index === 0 ? "start" : index === history.length - 1 ? "end" : "middle"}">${new Date(entry.syncedAt).getHours()}:00</text>`;
-  }).join("");
+  const area = `0,110 ${line} ${width},110`;
 
   els.historyChart.innerHTML = `
-    <svg class="svg-chart" viewBox="0 0 ${width} ${height}" aria-label="Sync history chart">
+    <svg class="svg-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
       <polygon class="svg-area" points="${area}"></polygon>
       <polyline class="svg-line" points="${line}"></polyline>
-      ${dots}
-      ${labels}
     </svg>
   `;
 }
 
-function renderFeed(items) {
-  const newest = [...items].slice(0, 6);
-  els.liveFeed.innerHTML = "";
-  if (!newest.length) {
-    els.liveFeed.innerHTML = `<div class="empty-state">The live feed will populate after the first sync.</div>`;
-    return;
-  }
-
-  for (const item of newest) {
-    const node = document.createElement("article");
-    node.className = "feed-item";
-    node.innerHTML = `
-      <p class="feed-title">${item.name}</p>
-      <div class="feed-copy">${sourceLabel(item.source)} · ${item.metricLabel}: ${item.metricValue} · ${item.relativeTime}</div>
-      <div class="feed-copy">${item.desc}</div>
-    `;
-    els.liveFeed.appendChild(node);
-  }
-}
-
 function renderTrending(items) {
-  const top = items.slice(0, 5);
+  const top = [...items]
+    .sort((a, b) => (b.scores?.trend || 0) - (a.scores?.trend || 0))
+    .slice(0, 5);
+
   els.trendingList.innerHTML = "";
   if (!top.length) {
-    els.trendingList.innerHTML = `<div class="mini-item">No top movers yet.</div>`;
+    els.trendingList.innerHTML = `<div class="mini-copy">No movers yet.</div>`;
     return;
   }
 
-  for (const item of top) {
+  top.forEach((item) => {
     const node = document.createElement("div");
     node.className = "mini-item";
     node.innerHTML = `
-      <p class="mini-title">${item.name}</p>
-      <div class="small-copy">${item.metricValue} · money ${item.scores?.money || 0}</div>
+      <div class="mini-title">${item.name}</div>
+      <div class="mini-copy">${sourceLabel(item.source)} · Trend ${Math.round(item.scores?.trend || 0)} · ${item.metricValue}</div>
     `;
     els.trendingList.appendChild(node);
-  }
+  });
 }
 
 function renderSourceHealth(sourceHealth) {
   els.sourceHealth.innerHTML = "";
   const entries = Object.entries(sourceHealth);
   if (!entries.length) {
-    els.sourceHealth.innerHTML = `<div class="mini-item">Waiting for source health.</div>`;
+    els.sourceHealth.innerHTML = `<div class="mini-copy">Waiting for health check.</div>`;
     return;
   }
 
-  for (const [source, health] of entries) {
+  entries.forEach(([source, health]) => {
     const node = document.createElement("div");
     node.className = "mini-item";
     node.innerHTML = `
-      <p class="mini-title">${sourceLabel(source)}</p>
-      <div class="small-copy">${health.ok ? `ok · ${health.count} rows` : `error · ${health.error}`}</div>
+      <div class="mini-title">${sourceLabel(source)}</div>
+      <div class="mini-copy" style="color: ${health.ok ? "var(--green)" : "var(--red)"};">
+        ${health.ok ? `OK · ${health.count} rows` : `Error · ${health.error}`}
+      </div>
     `;
     els.sourceHealth.appendChild(node);
+  });
+}
+
+function renderNewsFeed(items) {
+  const newest = [...items]
+    .sort((a, b) => (b.scores?.trend || 0) - (a.scores?.trend || 0))
+    .slice(0, 8);
+
+  els.newsFeed.innerHTML = "";
+  if (!newest.length) {
+    els.newsFeed.innerHTML = `<div class="mini-copy">No recent discoveries yet.</div>`;
+    return;
   }
-}
 
-function makeScorePill(label, value) {
-  const node = document.createElement("span");
-  node.className = "score-pill";
-  node.textContent = `${label} ${Math.round(value)}`;
-  return node;
-}
-
-function summarizeSources(items) {
-  return items.reduce((accumulator, item) => {
-    accumulator[item.source] = (accumulator[item.source] || 0) + 1;
-    return accumulator;
-  }, {});
+  newest.forEach((item) => {
+    const node = document.createElement("article");
+    node.className = "news-item";
+    node.innerHTML = `
+      <div class="news-item-title">${item.name}</div>
+      <div class="news-item-meta">${sourceLabel(item.source)} · ${item.metricLabel}: ${item.metricValue} · Trend ${Math.round(item.scores?.trend || 0)}</div>
+      <div class="small-copy" style="margin-top: 0.25rem;">${item.aiSummary || item.desc || "No description available."}</div>
+    `;
+    els.newsFeed.appendChild(node);
+  });
 }
 
 function updateAiStatus(message = "") {
@@ -481,14 +407,18 @@ function updateAiStatus(message = "") {
     els.aiStatus.textContent = message;
     return;
   }
+  els.aiStatus.textContent = state.settings.automation.autoAnalyze ? "Auto-analysis on" : "Ready";
+}
 
-  const hasLocalGroq = Boolean(getSettings().keys.groqApiKey);
-  if (hasLocalGroq) {
-    els.aiStatus.textContent = `${Object.keys(state.analyses).length} cached AI notes`;
+function updateAiBriefing(items, watchlistCount) {
+  if (!items.length) {
+    els.aiBriefing.textContent = "No snapshot yet. Run a sync to populate the dashboard.";
     return;
   }
 
-  els.aiStatus.textContent = "Add a Groq key in Settings to enable AI summaries";
+  const top = [...items].sort((a, b) => scoreForPersonalized(b) - scoreForPersonalized(a))[0];
+  const analysesCount = Object.keys(state.analyses).length;
+  els.aiBriefing.textContent = `${items.length} live items across ${Object.keys(summarizeSources(items)).length} active sources. ${analysesCount} AI notes are cached. Strongest signal: ${top.name} from ${sourceLabel(top.source)}. Watchlist matches: ${watchlistCount}.`;
 }
 
 function setStatus(message) {
@@ -496,11 +426,21 @@ function setStatus(message) {
 }
 
 function buildAutomationSummary(settings) {
-  const mode = settings.automation.autoRefresh
-    ? `refresh every ${settings.automation.refreshMinutes}m`
-    : "manual refresh";
-  const analysis = settings.automation.autoAnalyze ? "auto analyze on" : "auto analyze off";
-  return `${mode}, ${analysis}, max ${settings.automation.maxItems} rows`;
+  const mode = settings.automation.preferServer ? "hybrid" : "browser";
+  return settings.automation.autoRefresh
+    ? `${mode} · ${settings.automation.refreshMinutes}m`
+    : `${mode} · manual`;
+}
+
+function summarizeSources(items) {
+  return items.reduce((acc, item) => {
+    acc[item.source] = (acc[item.source] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function scoreForPersonalized(item) {
+  return (item.scores?.trend || 0) + (item.scores?.money || 0) * 0.45 + (item.aiSummary ? 8 : 0) + (item.matchesWatchlist ? 18 : 0);
 }
 
 function toggleSetMembership(set, id, persist) {
@@ -513,28 +453,11 @@ function toggleSetMembership(set, id, persist) {
 }
 
 function applyAutoRefresh() {
-  if (state.refreshTimer) {
-    window.clearInterval(state.refreshTimer);
-    state.refreshTimer = null;
-  }
-
+  if (state.refreshTimer) clearInterval(state.refreshTimer);
   const settings = getSettings();
   if (!settings.automation.autoRefresh) return;
 
-  state.refreshTimer = window.setInterval(() => {
-    if (!document.hidden) {
-      syncData({ manual: false });
-    }
+  state.refreshTimer = setInterval(() => {
+    if (!document.hidden) syncData({ manual: false });
   }, settings.automation.refreshMinutes * 60 * 1000);
-}
-
-async function registerServiceWorker() {
-  const settings = getSettings();
-  if (!settings.automation.offlineMode || !("serviceWorker" in navigator)) return;
-
-  try {
-    await navigator.serviceWorker.register("/sw.js");
-  } catch {
-    // Ignore registration issues.
-  }
 }

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RepoRadar Dashboard</title>
-  <meta name="description" content="Live repo discovery dashboard with local vault settings, AI notes, charts, and cached catalog history.">
+  <title>RepoRadar - Intelligence Dashboard</title>
+  <meta name="description" content="Compact intelligence dashboard for repository discovery, scoring, and watchlists.">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,48 +15,97 @@
   <header class="topbar">
     <a class="brand" href="/index.html">
       <span class="brand-mark">RR</span>
-      <span>
-        <strong class="brand-name">RepoRadar</strong>
-      </span>
+      <strong class="brand-name">RepoRadar</strong>
     </a>
     <nav class="main-nav">
       <a class="nav-link active" href="/index.html">Dash</a>
+      <a class="nav-link" href="/recents.html">Recents</a>
       <a class="nav-link" href="/repositories.html">Repos</a>
       <a class="nav-link" href="/catalog.html">Log</a>
       <a class="nav-link" href="/settings.html">Set</a>
     </nav>
     <div class="topbar-actions">
       <div class="status-pill" id="syncStatus">Ready</div>
-      <button class="btn btn-strong" id="refreshBtn" type="button">Refresh</button>
+      <button class="btn btn-strong" id="refreshBtn" type="button">Sync Now</button>
     </div>
   </header>
 
   <main class="app-shell">
     <aside class="left-rail">
       <section class="panel">
-        <p class="panel-kicker">Quick Views</p>
+        <p class="panel-kicker">Navigation</p>
         <div class="stack-actions">
-          <button class="rail-action active" data-view="all" type="button">All <span id="allCount">0</span></button>
-          <button class="rail-action" data-view="saved" type="button">Saved <span id="savedCount">0</span></button>
-          <button class="rail-action" data-view="money" type="button">Money <span id="moneyCount">0</span></button>
+          <a class="rail-action active" href="/index.html">Dashboard <span>overview</span></a>
+          <a class="rail-action" href="/recents.html">Recents <span>new feed</span></a>
+          <a class="rail-action" href="/repositories.html">Repos <span>library</span></a>
+          <a class="rail-action" href="/catalog.html">Log <span>history</span></a>
+          <a class="rail-action" href="/settings.html">Settings <span>runtime</span></a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <p class="panel-kicker">Saved State</p>
+        <div class="stack-actions">
+          <div class="rail-action">Saved Repos <span id="savedCount">0</span></div>
+          <div class="rail-action">Queued <span id="queueCount">0</span></div>
+          <div class="rail-action">Watchlist Hits <span id="watchlistCount">0</span></div>
+          <div class="rail-action">High Value <span id="moneyCount">0</span></div>
         </div>
       </section>
 
       <section class="panel">
         <p class="panel-kicker">Top Movers</p>
-        <div id="trendingList" class="feed-list"></div>
+        <div class="mini-list" id="trendingList"></div>
+      </section>
+
+      <section class="panel">
+        <p class="panel-kicker">Source Health</p>
+        <div class="mini-list" id="sourceHealth"></div>
       </section>
     </aside>
 
-    <section class="content-column">
+    <section class="dashboard-main">
+      <section class="panel hero-panel">
+        <div class="hero-grid">
+          <div>
+            <p class="panel-kicker">Overview</p>
+            <h1 class="hero-title">Discovery command center.</h1>
+            <p class="hero-copy" style="margin-top: 0.35rem;">Keep discovery, scoring, AI notes, source health, and watchlist signals in one compact view.</p>
+            <div class="hero-actions">
+              <button class="btn btn-strong" id="analyzeTopBtn" type="button">Analyze Top</button>
+              <a class="btn" href="/recents.html">Open Feed</a>
+              <a class="btn" href="/settings.html">Tune Sources</a>
+            </div>
+          </div>
+          <div class="hero-meta">
+            <div class="mini-stat">
+              <span class="mini-stat-label">Runtime</span>
+              <strong class="mini-stat-value" id="runtimeMode">Waiting...</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Last Sync</span>
+              <strong class="mini-stat-value" id="lastSyncStatus">Never</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">Automation</span>
+              <strong class="mini-stat-value" id="automationStatus">Manual</strong>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-label">AI Status</span>
+              <strong class="mini-stat-value" id="aiStatus">Ready</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="stats-row">
         <article class="stat-card">
           <span class="stat-value" id="statItems">0</span>
-          <span class="stat-label">Live</span>
+          <span class="stat-label">Live Items</span>
         </article>
         <article class="stat-card">
           <span class="stat-value" id="statCatalog">0</span>
-          <span class="stat-label">Total</span>
+          <span class="stat-label">Catalog Rows</span>
         </article>
         <article class="stat-card">
           <span class="stat-value" id="statSources">0</span>
@@ -68,47 +117,80 @@
         </article>
         <article class="stat-card">
           <span class="stat-value" id="statNew">0</span>
-          <span class="stat-label">New</span>
-        </article>
-      </section>
-
-      <section class="chart-row">
-        <article class="panel">
-          <p class="panel-kicker">Source Mix</p>
-          <div id="sourceChart" class="chart-host"></div>
-        </article>
-        <article class="panel">
-          <p class="panel-kicker">Sync History</p>
-          <div id="historyChart" class="chart-host"></div>
+          <span class="stat-label">New Arrivals</span>
         </article>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <p class="panel-kicker">Recent Arrivals</p>
-          <a href="/repositories.html" class="btn">View all repositories</a>
+          <div>
+            <p class="panel-kicker">AI Picks</p>
+            <h2 class="panel-title">Personalized For You</h2>
+          </div>
         </div>
-        <div id="liveFeed" class="feed-list"></div>
+        <div class="ai-personalized" id="personalizedGrid"></div>
+      </section>
+
+      <section class="chart-row">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Coverage</p>
+              <h2 class="panel-title">Source Distribution</h2>
+            </div>
+          </div>
+          <div class="chart-host" id="sourceChart"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Activity</p>
+              <h2 class="panel-title">Sync Pulse</h2>
+            </div>
+          </div>
+          <div class="chart-host" id="historyChart"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Feed</p>
+            <h2 class="panel-title">Live Discovery Feed</h2>
+          </div>
+        </div>
+        <div class="news-feed" id="newsFeed"></div>
       </section>
     </section>
 
     <aside class="right-rail">
       <section class="panel">
-        <p class="panel-kicker">System State</p>
-        <dl class="meta-list">
-          <div><dt>AI</dt><dd id="aiStatus">Ready</dd></div>
-          <div><dt>Sync</dt><dd id="lastSyncStatus">Never</dd></div>
-        </dl>
+        <p class="panel-kicker">AI Briefing</p>
+        <p class="small-copy" id="aiBriefing">Awaiting first sync to prepare the current landscape summary.</p>
       </section>
 
       <section class="panel">
-        <p class="panel-kicker">Source Health</p>
-        <div id="sourceHealth" class="feed-list"></div>
+        <p class="panel-kicker">Quick Links</p>
+        <div class="stack-actions">
+          <a class="rail-action" href="/repositories.html">Browse Library <span>cards</span></a>
+          <a class="rail-action" href="/recents.html">Open Recents <span>stream</span></a>
+          <a class="rail-action" href="/catalog.html">Review Log <span>audit</span></a>
+          <a class="rail-action" href="/settings.html">Edit Settings <span>watchlist</span></a>
+        </div>
       </section>
 
       <section class="panel">
-        <p class="panel-kicker">Auto Mode</p>
-        <div class="small-copy" id="automationStatus">Active</div>
+        <p class="panel-kicker">Notes</p>
+        <div class="mini-list">
+          <div class="mini-item">
+            <div class="mini-title">Compact Mode</div>
+            <div class="mini-copy">Small typography, tighter spacing, no oversized hero blocks.</div>
+          </div>
+          <div class="mini-item">
+            <div class="mini-title">Browser Runtime</div>
+            <div class="mini-copy">Local watchlists, AI notes, sync history, and catalog remain available without a server.</div>
+          </div>
+        </div>
       </section>
     </aside>
   </main>

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RepoRadar - Library</title>
-  <meta name="description" content="Compact repository library for discovered projects, AI notes, and watchlists.">
+  <title>RepoRadar - Recents</title>
+  <meta name="description" content="Recent arrivals, compact feed view, and AI summaries for newly discovered projects.">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,43 +19,42 @@
     </a>
     <nav class="main-nav">
       <a class="nav-link" href="/index.html">Dash</a>
-      <a class="nav-link" href="/recents.html">Recents</a>
-      <a class="nav-link active" href="/repositories.html">Repos</a>
+      <a class="nav-link active" href="/recents.html">Recents</a>
+      <a class="nav-link" href="/repositories.html">Repos</a>
       <a class="nav-link" href="/catalog.html">Log</a>
       <a class="nav-link" href="/settings.html">Set</a>
     </nav>
     <div class="topbar-actions">
       <div class="status-pill" id="syncStatus">Ready</div>
-      <button class="btn btn-strong" id="refreshBtn" type="button">Sync</button>
+      <button class="btn btn-strong" id="refreshBtn" type="button">Sync Feed</button>
     </div>
   </header>
 
   <main class="page-shell">
     <section class="page-header">
-      <p class="eyebrow">Library</p>
-      <h1>Repository Explorer</h1>
-      <p class="hero-copy">Browse saved repos, sort by signal quality, and inspect watchlist matches without leaving the compact view.</p>
+      <p class="eyebrow">Recents</p>
+      <h1>Recent Arrivals</h1>
+      <p class="hero-copy">Scan the latest discoveries, narrow to new or watchlist-only items, and generate AI notes inline.</p>
     </section>
 
     <section class="toolbar">
       <div class="chip-row">
         <button class="chip chip-on" data-chip="all" type="button">All</button>
-        <button class="chip" data-chip="saved" type="button">Saved</button>
-        <button class="chip" data-chip="money" type="button">Money</button>
-        <button class="chip" data-chip="ai" type="button">AI/ML</button>
+        <button class="chip" data-chip="today" type="button">Today</button>
+        <button class="chip" data-chip="new" type="button">New Only</button>
         <button class="chip" data-chip="watchlist" type="button">Watchlist</button>
       </div>
       <div style="flex: 1;"></div>
       <select class="search-input" id="sortSelect" style="max-width: 150px;">
+        <option value="new">Sort: Newest</option>
         <option value="trend">Sort: Trend</option>
         <option value="money">Sort: Money</option>
-        <option value="new">Sort: Newest</option>
         <option value="name">Sort: Name</option>
       </select>
-      <input class="search-input" id="searchInput" type="search" placeholder="Search library..." style="max-width: 280px;">
+      <input class="search-input" id="searchInput" type="search" placeholder="Search discoveries..." style="max-width: 280px;">
     </section>
 
-    <section class="cards-grid" id="repoGrid" aria-live="polite"></section>
+    <section class="cards-grid" id="recentsGrid" aria-live="polite"></section>
   </main>
 
   <template id="cardTemplate">
@@ -68,6 +67,7 @@
       <p class="repo-owner"></p>
       <p class="repo-desc"></p>
       <div class="tag-row"></div>
+      <div class="analysis-box"></div>
       <div class="score-row"></div>
       <div class="card-actions">
         <button class="btn btn-strong save-btn" type="button">Save</button>
@@ -79,6 +79,6 @@
 
   <div id="modalHost"></div>
 
-  <script type="module" src="/repositories.js"></script>
+  <script type="module" src="/recents.js"></script>
 </body>
 </html>

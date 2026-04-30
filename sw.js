@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   "/styles.css",
   "/runtime.js",
   "/data.js",
+  "/watchlist.js",
   "/dashboard.js",
   "/settings.js",
   "/catalog.js",

@@ -3,96 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RepoRadar Catalog</title>
-  <meta name="description" content="RepoRadar local catalog with every fetched item stored in the browser like a small database.">
+  <title>RepoRadar - Audit Log</title>
+  <meta name="description" content="Compact audit log for all discovered repositories and sync history.">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<body class="scrollable-page">
   <header class="topbar">
     <a class="brand" href="/index.html">
       <span class="brand-mark">RR</span>
-      <span>
-        <strong class="brand-name">RepoRadar</strong>
-        <span class="brand-copy">browser catalog database</span>
-      </span>
+      <strong class="brand-name">RepoRadar</strong>
     </a>
     <nav class="main-nav">
-      <a class="nav-link" href="/index.html">Dashboard</a>
-      <a class="nav-link active" href="/catalog.html">Catalog</a>
-      <a class="nav-link" href="/settings.html">Settings</a>
+      <a class="nav-link" href="/index.html">Dash</a>
+      <a class="nav-link" href="/recents.html">Recents</a>
+      <a class="nav-link" href="/repositories.html">Repos</a>
+      <a class="nav-link active" href="/catalog.html">Log</a>
+      <a class="nav-link" href="/settings.html">Set</a>
     </nav>
     <div class="topbar-actions">
-      <div class="status-pill" id="catalogStatus">Catalog is read from localStorage</div>
+      <div class="status-pill" id="syncStatus">Ready</div>
     </div>
   </header>
 
   <main class="page-shell">
     <section class="page-header">
-      <p class="eyebrow">Catalog page</p>
-      <h1>Every fetched row, stored locally like a small browser database.</h1>
-      <p class="hero-copy">
-        Use the dashboard to pull data, then review the complete all-time catalog here with filters, scores, and saved or queued states.
-      </p>
-    </section>
-
-    <section class="stats-row">
-      <article class="stat-card">
-        <span class="stat-value" id="catalogTotal">0</span>
-        <span class="stat-label">Catalog rows</span>
-      </article>
-      <article class="stat-card">
-        <span class="stat-value" id="catalogSaved">0</span>
-        <span class="stat-label">Saved rows</span>
-      </article>
-      <article class="stat-card">
-        <span class="stat-value" id="catalogQueued">0</span>
-        <span class="stat-label">Queued rows</span>
-      </article>
-      <article class="stat-card">
-        <span class="stat-value" id="catalogAi">0</span>
-        <span class="stat-label">AI annotated</span>
-      </article>
+      <p class="eyebrow">Audit</p>
+      <h1>Discovery Log</h1>
+      <p class="hero-copy">Full local history of discovered projects, source coverage, and revisit frequency in a dense table view.</p>
     </section>
 
     <section class="panel">
-      <div class="catalog-toolbar">
-        <input class="search-input" id="catalogSearch" type="search" placeholder="Search the local catalog...">
-        <select class="field-select" id="catalogFilter">
-          <option value="all">All rows</option>
-          <option value="saved">Saved</option>
-          <option value="queued">Queued</option>
-          <option value="money">Monetizable</option>
-          <option value="ai">AI</option>
-        </select>
-        <select class="field-select" id="catalogSort">
-          <option value="seen">Last seen</option>
-          <option value="money">Money score</option>
-          <option value="trend">Trend score</option>
-          <option value="source">Source</option>
-        </select>
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">History</p>
+          <h2 class="panel-title">Catalog Records</h2>
+        </div>
+        <input class="search-input" id="searchInput" type="search" placeholder="Filter history..." style="max-width: 260px;">
       </div>
-      <div class="table-wrap">
-        <table class="catalog-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Source</th>
-              <th>Language</th>
-              <th>Money</th>
-              <th>Trend</th>
-              <th>First seen</th>
-              <th>Last seen</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="catalogBody"></tbody>
-        </table>
-      </div>
+      <div id="catalogTableHost"></div>
     </section>
   </main>
 

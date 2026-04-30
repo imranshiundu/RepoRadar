@@ -3,13 +3,11 @@ import {
   getAnalyses,
   getCatalogMap,
   getLatestSnapshot,
-  getQueuedSet,
   getSavedSet,
   getSettings,
   mergeAnalysesIntoItems,
   setAnalyses,
   setLatestSnapshot,
-  setQueuedSet,
   setSavedSet,
   sourceLabel,
   upsertCatalog
@@ -25,12 +23,10 @@ const state = {
   settings: getSettings(),
   items: [],
   saved: getSavedSet(),
-  queued: getQueuedSet(),
   analyses: getAnalyses(),
-  view: "all",
   chip: "all",
   search: "",
-  sort: "trend",
+  sort: "new",
   latestSnapshot: getLatestSnapshot()
 };
 
@@ -39,7 +35,7 @@ const els = {
   refreshBtn: document.getElementById("refreshBtn"),
   sortSelect: document.getElementById("sortSelect"),
   searchInput: document.getElementById("searchInput"),
-  repoGrid: document.getElementById("repoGrid"),
+  recentsGrid: document.getElementById("recentsGrid"),
   cardTemplate: document.getElementById("cardTemplate"),
   modalHost: document.getElementById("modalHost")
 };
@@ -94,11 +90,12 @@ async function syncData() {
       state.settings
     );
     upsertCatalog(state.items);
-    setLatestSnapshot({
+    state.latestSnapshot = {
       syncedAt: Date.now(),
       runtimeMode: payload.runtimeMode,
       items: state.items
-    });
+    };
+    setLatestSnapshot(state.latestSnapshot);
     const watchlistHits = publishWatchlistAlerts(
       findNewWatchlistMatches(state.items, previousCatalog, state.settings),
       state.settings
@@ -115,29 +112,42 @@ async function syncData() {
 }
 
 function visibleItems() {
+  let filtered = [...state.items];
   const catalog = getCatalogMap();
-  return state.items
-    .filter(item => {
-      if (state.chip === "all") return true;
-      if (state.chip === "saved") return state.saved.has(item.id);
-      if (state.chip === "money") return (item.scores?.money || 0) >= 72;
-      if (state.chip === "watchlist") return item.matchesWatchlist;
-      return item.tags?.includes(state.chip);
-    })
-    .filter(item => {
-      if (!state.search) return true;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  if (state.chip === "today") {
+    filtered = filtered.filter((item) => (catalog[item.id]?.lastSeenAt || 0) >= startOfToday.getTime());
+  }
+
+  if (state.chip === "new") {
+    filtered = filtered.filter((item) => {
+      const row = catalog[item.id];
+      return row && row.firstSeenAt === row.lastSeenAt;
+    });
+  }
+
+  if (state.chip === "watchlist") {
+    filtered = filtered.filter((item) => item.matchesWatchlist);
+  }
+
+  if (state.search) {
+    filtered = filtered.filter(item => {
       const haystack = [item.name, item.owner, item.desc, ...(item.tags || [])].join(" ").toLowerCase();
       return haystack.includes(state.search);
-    })
-    .sort((a, b) => compareItems(a, b, catalog));
+    });
+  }
+
+  return filtered.sort((a, b) => compareItems(a, b, catalog));
 }
 
 function render() {
   const items = visibleItems();
-  els.repoGrid.innerHTML = "";
+  els.recentsGrid.innerHTML = "";
   
   if (!items.length) {
-    els.repoGrid.innerHTML = '<div class="panel" style="grid-column: 1/-1; text-align: center;">No repositories match your criteria.</div>';
+    els.recentsGrid.innerHTML = '<div class="panel" style="grid-column: 1/-1; text-align: center;">No recent arrivals found. Try syncing.</div>';
     return;
   }
 
@@ -160,12 +170,21 @@ function render() {
       span.textContent = "watchlist";
       tagRow.appendChild(span);
     }
-    (item.tags || []).slice(0, 3).forEach(tag => {
+    (item.tags || []).forEach(tag => {
       const span = document.createElement("span");
       span.className = "tag";
       span.textContent = tag;
       tagRow.appendChild(span);
     });
+
+    const analysisBox = node.querySelector(".analysis-box");
+    if (item.aiSummary) {
+      analysisBox.textContent = item.aiSummary;
+      analysisBox.className = "analysis-box";
+    } else {
+      analysisBox.textContent = "AI Summary Pending";
+      analysisBox.className = "analysis-box small-copy";
+    }
 
     const scoreRow = node.querySelector(".score-row");
     scoreRow.innerHTML = `
@@ -211,65 +230,8 @@ function render() {
       window.open(item.url, "_blank", "noopener,noreferrer");
     });
 
-    // Modal on card click
-    node.addEventListener("click", () => showModal(item));
-
-    els.repoGrid.appendChild(node);
+    els.recentsGrid.appendChild(node);
   });
-}
-
-function showModal(item) {
-  const isSaved = state.saved.has(item.id);
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <button class="close-modal">&times;</button>
-      <div class="card-top">
-        <span class="source-pill">${sourceLabel(item.source)}</span>
-        <span class="metric-pill">${item.metricLabel}: ${item.metricValue}</span>
-      </div>
-      <h2 class="repo-name" style="margin-top: 1rem;">${item.name}</h2>
-      <p class="repo-owner" style="margin-bottom: 1.5rem;">${item.owner || "Unknown"} · ${item.language || "Mixed"}</p>
-
-      <p class="repo-desc" style="-webkit-line-clamp: unset; margin-bottom: 1.5rem;">${item.desc}</p>
-
-      <div class="tag-row" style="margin-bottom: 1.5rem;">
-        ${item.matchesWatchlist ? `<span class="tag" style="background: var(--brand-soft); color: var(--brand);">watchlist</span>` : ""}
-        ${(item.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
-      </div>
-
-      <div class="panel" style="background: var(--brand-soft); border-color: var(--brand); margin-bottom: 1.5rem;">
-        <p class="panel-kicker" style="color: var(--brand);">AI Analysis</p>
-        <p style="font-size: 0.9rem; line-height: 1.6;">${item.aiSummary || "AI summary not available. Tap 'Analyze' to generate one."}</p>
-      </div>
-
-      <div class="score-row" style="margin-bottom: 2rem;">
-        <span class="score-pill">Trend ${Math.round(item.scores?.trend || 0)}</span>
-        <span class="score-pill">Learn ${Math.round(item.scores?.learn || 0)}</span>
-        <span class="score-pill">Money ${Math.round(item.scores?.money || 0)}</span>
-      </div>
-
-      <div style="display: flex; gap: 1rem;">
-        <button class="btn ${isSaved ? 'btn-strong' : ''}" id="modalSave" style="flex: 1;">${isSaved ? 'Saved' : 'Save Repository'}</button>
-        <button class="btn btn-strong" id="modalOpen" style="flex: 1;">Open on GitHub</button>
-      </div>
-    </div>
-  `;
-
-  overlay.querySelector(".close-modal").onclick = () => overlay.remove();
-  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-  overlay.querySelector("#modalSave").onclick = () => {
-    toggleSetMembership(state.saved, item.id, setSavedSet);
-    overlay.remove();
-    render();
-  };
-  overlay.querySelector("#modalOpen").onclick = () => {
-    window.open(item.url, "_blank", "noopener,noreferrer");
-  };
-
-  els.modalHost.appendChild(overlay);
 }
 
 function toggleSetMembership(set, id, persist) {
@@ -279,17 +241,17 @@ function toggleSetMembership(set, id, persist) {
 }
 
 function compareItems(a, b, catalog) {
-  if (state.sort === "money") {
-    return (b.scores?.money || 0) - (a.scores?.money || 0);
+  if (state.sort === "trend") {
+    return (b.scores?.trend || 0) - (a.scores?.trend || 0);
   }
 
-  if (state.sort === "new") {
-    return (catalog[b.id]?.lastSeenAt || 0) - (catalog[a.id]?.lastSeenAt || 0);
+  if (state.sort === "money") {
+    return (b.scores?.money || 0) - (a.scores?.money || 0);
   }
 
   if (state.sort === "name") {
     return a.name.localeCompare(b.name);
   }
 
-  return (b.scores?.trend || 0) - (a.scores?.trend || 0);
+  return (catalog[b.id]?.lastSeenAt || 0) - (catalog[a.id]?.lastSeenAt || 0);
 }

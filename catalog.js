@@ -20,33 +20,16 @@ const state = {
 };
 
 const els = {
-  catalogStatus: document.getElementById("catalogStatus"),
-  catalogTotal: document.getElementById("catalogTotal"),
-  catalogSaved: document.getElementById("catalogSaved"),
-  catalogQueued: document.getElementById("catalogQueued"),
-  catalogAi: document.getElementById("catalogAi"),
-  catalogSearch: document.getElementById("catalogSearch"),
-  catalogFilter: document.getElementById("catalogFilter"),
-  catalogSort: document.getElementById("catalogSort"),
-  catalogBody: document.getElementById("catalogBody")
+  searchInput: document.getElementById("searchInput"),
+  catalogTableHost: document.getElementById("catalogTableHost")
 };
 
 wireUi();
 render();
 
 function wireUi() {
-  els.catalogSearch.addEventListener("input", (event) => {
+  els.searchInput.addEventListener("input", (event) => {
     state.search = event.target.value.trim().toLowerCase();
-    render();
-  });
-
-  els.catalogFilter.addEventListener("change", (event) => {
-    state.filter = event.target.value;
-    render();
-  });
-
-  els.catalogSort.addEventListener("change", (event) => {
-    state.sort = event.target.value;
     render();
   });
 }
@@ -55,42 +38,53 @@ function render() {
   state.rows = getCatalogRows();
   const rows = filteredRows();
 
-  els.catalogStatus.textContent = `${rows.length} visible rows from ${state.rows.length} locally stored`;
-  els.catalogTotal.textContent = String(state.rows.length);
-  els.catalogSaved.textContent = String(state.saved.size);
-  els.catalogQueued.textContent = String(state.queued.size);
-  els.catalogAi.textContent = String(Object.keys(state.analyses).length);
+  els.catalogTableHost.innerHTML = "";
 
-  els.catalogBody.innerHTML = "";
   if (!rows.length) {
-    els.catalogBody.innerHTML = `<tr><td colspan="9"><div class="empty-state">No catalog rows match the current filters.</div></td></tr>`;
+    els.catalogTableHost.innerHTML = `<div class="mini-item" style="text-align: center; padding: 2rem;">No logs match your search.</div>`;
     return;
   }
 
+  const table = document.createElement("table");
+  table.className = "audit-table";
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+  table.style.fontSize = "0.85rem";
+
+  table.innerHTML = `
+    <thead>
+      <tr style="text-align: left; color: var(--muted); border-bottom: 1px solid var(--border);">
+        <th style="padding: 0.75rem 0.5rem;">Repository</th>
+        <th style="padding: 0.75rem 0.5rem;">Source</th>
+        <th style="padding: 0.75rem 0.5rem;">Trend</th>
+        <th style="padding: 0.75rem 0.5rem;">Money</th>
+        <th style="padding: 0.75rem 0.5rem;">First Seen</th>
+        <th style="padding: 0.75rem 0.5rem;">Last Seen</th>
+        <th style="padding: 0.75rem 0.5rem; text-align: right;">Action</th>
+      </tr>
+    </thead>
+    <tbody id="catalogBody"></tbody>
+  `;
+
+  const tbody = table.querySelector("#catalogBody");
+
   for (const row of rows) {
     const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid var(--border)";
     const isSaved = state.saved.has(row.id);
-    const isQueued = state.queued.has(row.id);
-    const status = [isSaved ? "saved" : "", isQueued ? "queued" : ""].filter(Boolean).join(", ") || "none";
 
     tr.innerHTML = `
-      <td>
-        <strong>${row.name}</strong>
-        <div class="small-copy">${row.desc || ""}</div>
+      <td style="padding: 1rem 0.5rem;">
+        <div style="font-weight: 600;">${row.name}</div>
+        <div class="small-copy" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.desc || "No description"}</div>
       </td>
-      <td>${sourceLabel(row.source)}</td>
-      <td>${row.language || "Mixed"}</td>
-      <td>${Math.round(row.scores?.money || 0)}</td>
-      <td>${Math.round(row.scores?.trend || 0)}</td>
-      <td>${formatTime(row.firstSeenAt)}</td>
-      <td>${formatTime(row.lastSeenAt)}</td>
-      <td>${status}</td>
-      <td>
-        <div class="row-actions">
-          <button class="btn" data-action="save">${isSaved ? "Unsave" : "Save"}</button>
-          <button class="btn" data-action="queue">${isQueued ? "Unqueue" : "Queue"}</button>
-          <a class="text-link" href="${row.url}" target="_blank" rel="noopener noreferrer">Open</a>
-        </div>
+      <td style="padding: 1rem 0.5rem;"><span class="source-pill" style="font-size: 0.65rem;">${sourceLabel(row.source)}</span></td>
+      <td style="padding: 1rem 0.5rem;">${Math.round(row.scores?.trend || 0)}</td>
+      <td style="padding: 1rem 0.5rem;">${Math.round(row.scores?.money || 0)}</td>
+      <td style="padding: 1rem 0.5rem; color: var(--muted);">${formatTime(row.firstSeenAt)}</td>
+      <td style="padding: 1rem 0.5rem; color: var(--muted);">${formatTime(row.lastSeenAt)}</td>
+      <td style="padding: 1rem 0.5rem; text-align: right;">
+        <button class="btn ${isSaved ? 'btn-strong' : ''}" data-action="save" style="font-size: 0.7rem;">${isSaved ? "Saved" : "Save"}</button>
       </td>
     `;
 
@@ -99,29 +93,16 @@ function render() {
       render();
     });
 
-    tr.querySelector('[data-action="queue"]').addEventListener("click", () => {
-      toggleSetMembership(state.queued, row.id, setQueuedSet);
-      render();
-    });
-
-    els.catalogBody.appendChild(tr);
+    tbody.appendChild(tr);
   }
+
+  els.catalogTableHost.appendChild(table);
 }
 
 function filteredRows() {
   return state.rows
-    .filter(matchesFilter)
     .filter(matchesSearch)
-    .sort(sortRows);
-}
-
-function matchesFilter(row) {
-  if (state.filter === "all") return true;
-  if (state.filter === "saved") return state.saved.has(row.id);
-  if (state.filter === "queued") return state.queued.has(row.id);
-  if (state.filter === "money") return (row.scores?.money || 0) >= 72;
-  if (state.filter === "ai") return row.tags?.includes("ai");
-  return true;
+    .sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0));
 }
 
 function matchesSearch(row) {
@@ -134,13 +115,6 @@ function matchesSearch(row) {
     ...(row.tags || [])
   ].join(" ").toLowerCase();
   return haystack.includes(state.search);
-}
-
-function sortRows(left, right) {
-  if (state.sort === "money") return (right.scores?.money || 0) - (left.scores?.money || 0);
-  if (state.sort === "trend") return (right.scores?.trend || 0) - (left.scores?.trend || 0);
-  if (state.sort === "source") return sourceLabel(left.source).localeCompare(sourceLabel(right.source));
-  return (right.lastSeenAt || 0) - (left.lastSeenAt || 0);
 }
 
 function toggleSetMembership(set, id, persist) {
