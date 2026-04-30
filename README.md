@@ -6,6 +6,8 @@ It now does more than fetch trending repos:
 
 - Cleans raw source text before rendering cards
 - Uses AI to translate non-English repository/news content into concise English
+- Resolves repository links from discussion sources like Reddit when possible
+- Scans Reddit thread comments for lightweight praise/complaint validation signals
 - Generates deeper repository briefs with use cases, audience, opportunity, weekend MVP, timing notes, risks, and ignore signals
 - Learns from `Save` and `Ignore` actions to rank future discoveries toward your taste
 - Filters out exact ignored repos and downranks repo types that match patterns you repeatedly reject
@@ -61,6 +63,13 @@ When AI analysis is available:
   - why-now reasoning
   - risk list
   - ignore-pattern hints
+
+For discussion-driven sources such as Reddit:
+
+- RepoRadar tries to resolve the actual repository/project link from the post body, outbound URL, and comments
+- Comment threads are scanned for quick validation signals
+- Positive discussion can boost ranking
+- Repeated complaint signals can reduce ranking and influence the AI brief
 
 AI briefs are cached locally after generation.
 

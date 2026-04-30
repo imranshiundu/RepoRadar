@@ -14,15 +14,15 @@
 <body class="scrollable-page">
   <header class="topbar">
     <a class="brand" href="/index.html">
-      <span class="brand-mark">RR</span>
+     
       <strong class="brand-name">RepoRadar</strong>
     </a>
     <nav class="main-nav">
-      <a class="nav-link" href="/index.html">Dash</a>
+      <a class="nav-link" href="/index.html">Dashboards</a>
       <a class="nav-link" href="/recents.html">Recents</a>
-      <a class="nav-link" href="/repositories.html">Repos</a>
-      <a class="nav-link" href="/catalog.html">Log</a>
-      <a class="nav-link" href="/settings.html">Set</a>
+      <a class="nav-link" href="/repositories.html">Repositories</a>
+      <a class="nav-link" href="/catalog.html">Catalog</a>
+      <a class="nav-link" href="/settings.html">Settings</a>
     </nav>
     <div class="topbar-actions">
       <div class="status-pill" id="detailStatus">Loading...</div>
@@ -86,8 +86,16 @@
             <button class="btn btn-strong" id="saveBtn" type="button">Save</button>
             <button class="btn" id="ignoreBtn" type="button">Ignore</button>
             <button class="btn" id="analyzeBtn" type="button">Re-Analyze</button>
-            <button class="btn" id="openBtn" type="button">Open Source</button>
+            <button class="btn" id="openBtn" type="button">Open Repo</button>
+            <button class="btn" id="discussionBtn" type="button">Open Discussion</button>
           </div>
+        </section>
+
+        <section class="panel detail-section">
+          <p class="panel-kicker">Validation</p>
+          <h2 class="panel-title">Discussion Signal</h2>
+          <p class="small-copy" id="validationSummary">No discussion evidence collected yet.</p>
+          <ul class="detail-list" id="validationHighlights"></ul>
         </section>
 
         <section class="panel detail-section">

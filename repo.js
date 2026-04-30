@@ -49,6 +49,8 @@ const els = {
   detailMvp: document.getElementById("detailMvp"),
   useCasesList: document.getElementById("useCasesList"),
   risksList: document.getElementById("risksList"),
+  validationSummary: document.getElementById("validationSummary"),
+  validationHighlights: document.getElementById("validationHighlights"),
   ignoreSignalsList: document.getElementById("ignoreSignalsList"),
   detailOwner: document.getElementById("detailOwner"),
   detailLanguage: document.getElementById("detailLanguage"),
@@ -57,7 +59,8 @@ const els = {
   saveBtn: document.getElementById("saveBtn"),
   ignoreBtn: document.getElementById("ignoreBtn"),
   analyzeBtn: document.getElementById("analyzeBtn"),
-  openBtn: document.getElementById("openBtn")
+  openBtn: document.getElementById("openBtn"),
+  discussionBtn: document.getElementById("discussionBtn")
 };
 
 boot();
@@ -92,8 +95,14 @@ function wireUi() {
   els.analyzeBtn.addEventListener("click", () => analyzeCurrentItem());
 
   els.openBtn.addEventListener("click", () => {
-    if (state.item?.url) {
-      window.open(state.item.url, "_blank", "noopener,noreferrer");
+    if (state.item?.repoUrl || state.item?.url) {
+      window.open(state.item.repoUrl || state.item.url, "_blank", "noopener,noreferrer");
+    }
+  });
+
+  els.discussionBtn.addEventListener("click", () => {
+    if (state.item?.discussionUrl) {
+      window.open(state.item.discussionUrl, "_blank", "noopener,noreferrer");
     }
   });
 }
@@ -142,11 +151,15 @@ function render() {
   els.saveBtn.classList.toggle("btn-strong", state.saved.has(item.id));
   els.ignoreBtn.textContent = state.ignored.has(item.id) ? "Ignored" : "Ignore";
   els.ignoreBtn.classList.toggle("btn-strong", state.ignored.has(item.id));
+  els.openBtn.textContent = item.repoUrl ? "Open Repo" : "Open Source";
+  els.discussionBtn.disabled = !item.discussionUrl;
 
   renderTags(item);
   renderScores(item);
   renderList(els.useCasesList, item.useCases, localUseCases(item));
   renderList(els.risksList, item.risks, localRisks(item));
+  els.validationSummary.textContent = item.validation?.summary || localValidationSummary(item);
+  renderList(els.validationHighlights, item.validation?.highlights, localValidationHighlights(item));
   renderList(els.ignoreSignalsList, item.ignoreSignals, localIgnoreSignals(item));
 }
 
@@ -254,7 +267,8 @@ function detailStatusLabel(item) {
 }
 
 function buildLocalSummary(item) {
-  return `${item.translatedTitle || item.name} is currently surfaced from ${sourceLabel(item.source)} with ${item.metricLabel?.toLowerCase() || "activity"} at ${item.metricValue}. This is the fast local brief while waiting for or reusing AI analysis.`;
+  const validation = item.validation?.summary ? ` ${item.validation.summary}` : "";
+  return `${item.translatedTitle || item.name} is currently surfaced from ${sourceLabel(item.source)} with ${item.metricLabel?.toLowerCase() || "activity"} at ${item.metricValue}. This is the fast local brief while waiting for or reusing AI analysis.${validation}`;
 }
 
 function buildLocalOpportunity(item) {
@@ -299,4 +313,22 @@ function localIgnoreSignals(item) {
     `Tags like ${(item.tags || []).join(", ") || "general devtools"} will influence future ranking preferences.`,
     "Exact ignored repos are hidden from future discovery views."
   ];
+}
+
+function localValidationSummary(item) {
+  if (item.repoUrl && item.discussionUrl) {
+    return "Repo link resolved from the discussion, but no comment sentiment summary is cached yet.";
+  }
+  if (item.discussionUrl) {
+    return "Discussion thread is available, but a concrete repo link was not confirmed from source text or comments.";
+  }
+  return "No discussion evidence is available for this source.";
+}
+
+function localValidationHighlights(item) {
+  const values = [];
+  if (item.repoUrl) values.push(`Resolved project link: ${item.repoUrl}`);
+  if (item.discussionUrl) values.push("You can open the original discussion thread for manual validation.");
+  if (!values.length) values.push("No validation highlights available yet.");
+  return values;
 }

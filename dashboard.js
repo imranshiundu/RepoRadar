@@ -301,7 +301,7 @@ function renderPersonalized(items) {
     });
 
     card.querySelector('[data-action="open"]').addEventListener("click", () => {
-      window.open(item.url, "_blank", "noopener,noreferrer");
+      window.open(item.repoUrl || item.url, "_blank", "noopener,noreferrer");
     });
 
     card.addEventListener("click", (event) => {

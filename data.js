@@ -118,10 +118,15 @@ async function analyzeWithGroqBrowser(items, settings) {
             owner: item.owner,
             source: item.source,
             desc: item.desc,
+            rawDesc: item.rawDesc,
             language: item.language,
             tags: item.tags,
             metricLabel: item.metricLabel,
-            metricValue: item.metricValue
+            metricValue: item.metricValue,
+            repoUrl: item.repoUrl,
+            discussionUrl: item.discussionUrl,
+            validationSummary: item.validation?.summary,
+            commentHighlights: item.validation?.highlights
           })))
         }
       ]
@@ -218,7 +223,10 @@ async function fetchRedditPosts() {
     subreddits.map(async (subreddit) => {
       const response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?raw_json=1&limit=3`);
       const payload = await safeJsonResponse(response);
-      return (payload.data?.children || []).map((post) => normalizeRedditPost(post, subreddit));
+      const normalized = await Promise.all(
+        (payload.data?.children || []).map((post) => enrichRedditPost(normalizeRedditPost(post, subreddit), post, subreddit))
+      );
+      return normalized;
     })
   );
 
@@ -384,6 +392,7 @@ function normalizeHnStory(hit) {
 function normalizeRedditPost(post, subreddit) {
   const data = post.data || {};
   const text = cleanText(`${data.title || ""} ${data.selftext || ""}`);
+  const discussionUrl = `https://www.reddit.com${data.permalink}`;
   return {
     id: `reddit:${data.subreddit || subreddit}:${data.id}`,
     name: cleanText(data.title || "Untitled Reddit post"),
@@ -392,14 +401,17 @@ function normalizeRedditPost(post, subreddit) {
     rawDesc: cleanText(data.selftext || "Trending Reddit thread."),
     source: "reddit",
     sourceName: "Reddit",
-    url: data.url_overridden_by_dest || `https://www.reddit.com${data.permalink}`,
+    url: data.url_overridden_by_dest || discussionUrl,
+    discussionUrl,
+    repoUrl: null,
     language: inferLanguage(text),
     tags: buildTags(text, inferLanguage(text)),
     metricLabel: "Upvotes",
     metricValue: formatCount(data.ups || 0),
     relativeTime: relativeTime((data.created_utc || 0) * 1000),
     scores: scoreItem(text, data.ups || 0, 20),
-    aiSummary: ""
+    aiSummary: "",
+    validation: null
   };
 }
 
@@ -509,6 +521,7 @@ function rankValue(item) {
   return (
     (item.scores?.trend || 0) * 1.2 +
     (item.scores?.money || 0) * 0.55 +
+    validationBoost(item.validation) +
     (item.preferenceScore || 0) +
     (item.isNew ? 9 : 0)
   );
@@ -542,4 +555,133 @@ function normalizeStringArray(value) {
     .map((entry) => cleanText(entry))
     .filter(Boolean)
     .slice(0, 6);
+}
+
+async function enrichRedditPost(item, post, subreddit) {
+  const data = post.data || {};
+  const inlineUrls = extractUrls(`${data.title || ""}\n${data.selftext || ""}`);
+  const externalUrl = data.url_overridden_by_dest || "";
+
+  try {
+    const validation = await fetchRedditValidation(data.permalink);
+    const repoUrl = pickRepoUrl([externalUrl, ...inlineUrls, ...validation.urls]);
+    const adjustedScores = {
+      ...item.scores,
+      trend: clampScore(item.scores.trend + validation.scoreDelta),
+      money: clampScore(item.scores.money + Math.max(-8, Math.min(8, validation.praiseCount - validation.complaintCount))),
+      learn: clampScore(item.scores.learn + (repoUrl ? 4 : 0))
+    };
+
+    return {
+      ...item,
+      url: repoUrl || externalUrl || item.discussionUrl,
+      repoUrl,
+      discussionUrl: item.discussionUrl,
+      validation,
+      scores: adjustedScores,
+      tags: dedupeTags([
+        ...item.tags,
+        ...(repoUrl ? inferRepoTags(repoUrl) : [])
+      ])
+    };
+  } catch {
+    const repoUrl = pickRepoUrl([externalUrl, ...inlineUrls]);
+    return {
+      ...item,
+      url: repoUrl || externalUrl || item.discussionUrl,
+      repoUrl,
+      tags: dedupeTags([
+        ...item.tags,
+        ...(repoUrl ? inferRepoTags(repoUrl) : [])
+      ])
+    };
+  }
+}
+
+async function fetchRedditValidation(permalink) {
+  const response = await fetch(`https://www.reddit.com${permalink}.json?raw_json=1&limit=8`, { cache: "no-store" });
+  const payload = await safeJsonResponse(response);
+  const comments = flattenRedditComments(payload?.[1]?.data?.children || []).slice(0, 8);
+  const commentBodies = comments.map((comment) => cleanText(comment.data?.body || "")).filter(Boolean);
+  const urls = comments.flatMap((comment) => extractUrls(comment.data?.body || ""));
+  const praiseCount = commentBodies.filter(isPositiveComment).length;
+  const complaintCount = commentBodies.filter(isNegativeComment).length;
+  const highlights = selectCommentHighlights(commentBodies);
+  const summary = buildValidationSummary(praiseCount, complaintCount, commentBodies.length);
+
+  return {
+    commentCount: commentBodies.length,
+    praiseCount,
+    complaintCount,
+    highlights,
+    urls,
+    summary,
+    scoreDelta: Math.max(-14, Math.min(14, praiseCount * 3 - complaintCount * 4))
+  };
+}
+
+function flattenRedditComments(nodes, output = []) {
+  for (const node of nodes) {
+    if (node.kind !== "t1") continue;
+    output.push(node);
+    const replies = node.data?.replies?.data?.children || [];
+    flattenRedditComments(replies, output);
+  }
+  return output;
+}
+
+function extractUrls(value) {
+  return Array.from(String(value || "").matchAll(/https?:\/\/[^\s)>"']+/gi)).map((match) => match[0]);
+}
+
+function pickRepoUrl(urls) {
+  const cleaned = urls
+    .map((url) => String(url || "").trim())
+    .filter(Boolean);
+
+  const preferred = cleaned.find((url) => /(github\.com|gitlab\.com|codeberg\.org|bitbucket\.org)/i.test(url));
+  return preferred || cleaned[0] || null;
+}
+
+function inferRepoTags(url) {
+  const value = String(url || "").toLowerCase();
+  const tags = [];
+  if (value.includes("github.com")) tags.push("oss");
+  if (value.includes("gitlab.com")) tags.push("oss");
+  return tags;
+}
+
+function dedupeTags(tags) {
+  return [...new Set((tags || []).filter(Boolean))];
+}
+
+function validationBoost(validation) {
+  if (!validation) return 0;
+  return Math.max(-10, Math.min(10, validation.praiseCount * 1.5 - validation.complaintCount * 2));
+}
+
+function isPositiveComment(text) {
+  return /\b(great|love|works|working|useful|helpful|amazing|nice|solid|impressive|cool|well done|good job)\b/i.test(text);
+}
+
+function isNegativeComment(text) {
+  return /\b(broken|doesn'?t work|not work|issue|issues|error|errors|bug|bugs|failing|failed|crash|complain|problem|problems|slow|scam)\b/i.test(text);
+}
+
+function selectCommentHighlights(comments) {
+  return comments
+    .filter((comment) => isPositiveComment(comment) || isNegativeComment(comment))
+    .slice(0, 4)
+    .map((comment) => truncateAtWord(comment, 140));
+}
+
+function buildValidationSummary(praiseCount, complaintCount, commentCount) {
+  if (!commentCount) return "No useful comment evidence was collected yet.";
+  if (praiseCount > complaintCount + 1) {
+    return `Discussion sentiment is mostly positive: ${praiseCount} positive comments vs ${complaintCount} complaints.`;
+  }
+  if (complaintCount > praiseCount + 1) {
+    return `Discussion shows caution: ${complaintCount} complaint signals vs ${praiseCount} positive comments.`;
+  }
+  return `Discussion is mixed: ${praiseCount} positive comments and ${complaintCount} complaint signals.`;
 }

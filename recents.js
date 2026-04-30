@@ -282,7 +282,7 @@ function render() {
 
     node.querySelector(".visit-btn").addEventListener("click", (e) => {
       e.stopPropagation();
-      window.open(item.url, "_blank", "noopener,noreferrer");
+      window.open(item.repoUrl || item.url, "_blank", "noopener,noreferrer");
     });
 
     node.addEventListener("click", () => {
