@@ -487,6 +487,7 @@ select {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 0.7rem;
+  align-items: stretch;
 }
 
 .ai-card,
@@ -499,6 +500,15 @@ select {
 
 .ai-card {
   background: linear-gradient(180deg, #fff9f4 0%, #fffdf9 100%);
+}
+
+.repo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 320px;
+  height: 100%;
+  cursor: pointer;
 }
 
 .ai-card-title {
@@ -562,6 +572,10 @@ select {
   color: var(--text);
   font-size: 0.76rem;
   line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .tag-row,
@@ -600,6 +614,10 @@ select {
   color: var(--text);
   font-size: 0.73rem;
   line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .card-actions {
@@ -763,6 +781,43 @@ textarea.field-input {
   box-shadow: var(--shadow-md);
 }
 
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 300px;
+  gap: 0.75rem;
+}
+
+.detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.detail-title {
+  font-family: var(--font-head);
+  font-size: 1.55rem;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.detail-list li {
+  margin-left: 1rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
 .close-modal {
   float: right;
   width: 28px;
@@ -819,6 +874,7 @@ textarea.field-input {
   .chart-row,
   .settings-grid,
   .hero-grid,
+  .detail-grid,
   .meta-list,
   .option-grid {
     grid-template-columns: 1fr;

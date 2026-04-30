@@ -1,12 +1,13 @@
 import {
-  formatTime,
   getAnalyses,
   getCatalogMap,
+  getIgnoredSet,
   getLatestSnapshot,
   getSavedSet,
   getSettings,
   mergeAnalysesIntoItems,
   setAnalyses,
+  setIgnoredSet,
   setLatestSnapshot,
   setSavedSet,
   sourceLabel,
@@ -23,6 +24,7 @@ const state = {
   settings: getSettings(),
   items: [],
   saved: getSavedSet(),
+  ignored: getIgnoredSet(),
   analyses: getAnalyses(),
   chip: "all",
   search: "",
@@ -112,7 +114,7 @@ async function syncData() {
 }
 
 function visibleItems() {
-  let filtered = [...state.items];
+  let filtered = state.items.filter((item) => !state.ignored.has(item.id));
   const catalog = getCatalogMap();
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -154,10 +156,11 @@ function render() {
   items.forEach(item => {
     const node = els.cardTemplate.content.firstElementChild.cloneNode(true);
     const isSaved = state.saved.has(item.id);
+    const isIgnored = state.ignored.has(item.id);
 
     node.querySelector(".source-pill").textContent = sourceLabel(item.source);
     node.querySelector(".metric-pill").textContent = `${item.metricLabel}: ${item.metricValue}`;
-    node.querySelector(".repo-name").textContent = item.name;
+    node.querySelector(".repo-name").textContent = displayTitle(item);
     node.querySelector(".repo-owner").textContent = `${item.owner || "Unknown"} · ${item.language || "Mixed"}`;
     node.querySelector(".repo-desc").textContent = item.desc;
 
@@ -179,8 +182,11 @@ function render() {
 
     const analysisBox = node.querySelector(".analysis-box");
     if (item.aiSummary) {
-      analysisBox.textContent = item.aiSummary;
+      analysisBox.textContent = item.translatedSummary || item.aiSummary;
       analysisBox.className = "analysis-box";
+    } else if (item.language === "Chinese" || item.language === "Japanese" || item.language === "Korean") {
+      analysisBox.textContent = "Non-English source detected. Tap AI or open the detail page for an English brief.";
+      analysisBox.className = "analysis-box small-copy";
     } else {
       analysisBox.textContent = "AI Summary Pending";
       analysisBox.className = "analysis-box small-copy";
@@ -198,6 +204,15 @@ function render() {
     saveBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       toggleSetMembership(state.saved, item.id, setSavedSet);
+      render();
+    });
+
+    const ignoreBtn = node.querySelector(".ignore-btn");
+    ignoreBtn.classList.toggle("btn-strong", isIgnored);
+    ignoreBtn.textContent = isIgnored ? "Ignored" : "Ignore";
+    ignoreBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleSetMembership(state.ignored, item.id, setIgnoredSet);
       render();
     });
 
@@ -230,6 +245,10 @@ function render() {
       window.open(item.url, "_blank", "noopener,noreferrer");
     });
 
+    node.addEventListener("click", () => {
+      window.location.href = `/repo.html?id=${encodeURIComponent(item.id)}`;
+    });
+
     els.recentsGrid.appendChild(node);
   });
 }
@@ -238,6 +257,10 @@ function toggleSetMembership(set, id, persist) {
   if (set.has(id)) set.delete(id);
   else set.add(id);
   persist(set);
+}
+
+function displayTitle(item) {
+  return item.translatedTitle || item.name;
 }
 
 function compareItems(a, b, catalog) {

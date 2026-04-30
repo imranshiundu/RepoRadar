@@ -5,12 +5,14 @@ import {
   getCatalogMap,
   getCatalogRows,
   getHistory,
+  getIgnoredSet,
   getLatestSnapshot,
   getQueuedSet,
   getSavedSet,
   getSettings,
   mergeAnalysesIntoItems,
   setAnalyses,
+  setIgnoredSet,
   setLatestSnapshot,
   setSavedSet,
   sourceLabel,
@@ -27,6 +29,7 @@ const state = {
   settings: getSettings(),
   items: [],
   saved: getSavedSet(),
+  ignored: getIgnoredSet(),
   queued: getQueuedSet(),
   analyses: getAnalyses(),
   history: getHistory(),
@@ -210,6 +213,7 @@ function render(newCount = state.latestSnapshot?.newCount || 0) {
 
 function renderPersonalized(items) {
   const recommendations = [...items]
+    .filter((item) => !state.ignored.has(item.id))
     .sort((a, b) => scoreForPersonalized(b) - scoreForPersonalized(a))
     .slice(0, 4);
 
@@ -229,6 +233,7 @@ function renderPersonalized(items) {
         <span class="metric-pill">${item.metricLabel}: ${item.metricValue}</span>
       </div>
       <div class="ai-card-title" style="margin-top: 0.35rem;">${item.name}</div>
+      <div class="ai-card-title" style="display:none;">${item.translatedTitle || ""}</div>
       <div class="mini-copy">${item.owner || "Unknown"} · ${item.language || "Mixed"}</div>
       <div class="tag-row" style="margin-top: 0.45rem;">
         ${item.matchesWatchlist ? `<span class="tag" style="background: var(--brand-soft); color: var(--brand);">watchlist</span>` : ""}
@@ -241,6 +246,7 @@ function renderPersonalized(items) {
       </div>
       <div class="card-actions">
         <button class="btn ${isSaved ? "btn-strong" : ""}" data-action="save" type="button">${isSaved ? "Saved" : "Save"}</button>
+        <button class="btn" data-action="ignore" type="button">${state.ignored.has(item.id) ? "Ignored" : "Ignore"}</button>
         <button class="btn" data-action="ai" type="button">AI</button>
         <button class="btn btn-strong" data-action="open" type="button">Open</button>
       </div>
@@ -274,8 +280,19 @@ function renderPersonalized(items) {
       }
     });
 
+    card.querySelector('[data-action="ignore"]').addEventListener("click", () => {
+      toggleSetMembership(state.ignored, item.id, setIgnoredSet);
+      render();
+    });
+
     card.querySelector('[data-action="open"]').addEventListener("click", () => {
       window.open(item.url, "_blank", "noopener,noreferrer");
+    });
+
+    card.addEventListener("click", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("button")) return;
+      window.location.href = `/repo.html?id=${encodeURIComponent(item.id)}`;
     });
 
     els.personalizedGrid.appendChild(card);
@@ -338,6 +355,7 @@ function renderHistoryChart(history) {
 
 function renderTrending(items) {
   const top = [...items]
+    .filter((item) => !state.ignored.has(item.id))
     .sort((a, b) => (b.scores?.trend || 0) - (a.scores?.trend || 0))
     .slice(0, 5);
 
@@ -391,12 +409,13 @@ function renderNewsFeed(items) {
   }
 
   newest.forEach((item) => {
+    if (state.ignored.has(item.id)) return;
     const node = document.createElement("article");
     node.className = "news-item";
     node.innerHTML = `
-      <div class="news-item-title">${item.name}</div>
+      <div class="news-item-title">${item.translatedTitle || item.name}</div>
       <div class="news-item-meta">${sourceLabel(item.source)} · ${item.metricLabel}: ${item.metricValue} · Trend ${Math.round(item.scores?.trend || 0)}</div>
-      <div class="small-copy" style="margin-top: 0.25rem;">${item.aiSummary || item.desc || "No description available."}</div>
+      <div class="small-copy" style="margin-top: 0.25rem;">${item.translatedSummary || item.aiSummary || item.desc || "No description available."}</div>
     `;
     els.newsFeed.appendChild(node);
   });

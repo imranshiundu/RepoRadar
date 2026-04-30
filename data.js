@@ -1,5 +1,10 @@
 import {
+  buildPreferenceProfile,
   formatCount,
+  getCatalogMap,
+  getIgnoredSet,
+  getSavedSet,
+  preferenceScoreForItem,
   relativeTime,
   sourceLabel
 } from "./runtime.js";
@@ -30,9 +35,10 @@ export async function discoverData(settings) {
         : { items: [], sourceHealth: {} };
 
       return {
-        items: [...normalizeServerItems(payload.items || []), ...(browserPayload.items || [])]
-          .sort((left, right) => (right.scores?.trend || 0) - (left.scores?.trend || 0))
-          .slice(0, settings.automation.maxItems),
+        items: rankAndFilterItems(
+          [...normalizeServerItems(payload.items || []), ...(browserPayload.items || [])],
+          settings
+        ),
         sourceHealth: {
           ...(payload.sourceHealth || {}),
           ...(browserPayload.sourceHealth || {})
@@ -46,7 +52,7 @@ export async function discoverData(settings) {
 
   const { items, sourceHealth } = await fetchBrowserDiscover(activeSources, settings);
   return {
-    items,
+    items: rankAndFilterItems(items, settings),
     sourceHealth,
     runtimeMode: "Browser direct"
   };
@@ -96,7 +102,7 @@ async function analyzeWithGroqBrowser(items, settings) {
       messages: [
         {
           role: "system",
-          content: "Return valid JSON only. Produce an array of objects with keys id, summary, opportunity, audience, weekendMvp, scores. scores must contain numeric trend, learn, money values from 1 to 100."
+          content: "Return valid JSON only. Produce an array of objects with keys id, translatedTitle, translatedSummary, summary, opportunity, audience, weekendMvp, useCases, whyNow, risks, ignoreSignals, scores. Translate non-English titles/descriptions into concise English. Remove HTML noise. summary must be compact and readable English. useCases and risks and ignoreSignals must be arrays of short English strings. scores must contain numeric trend, learn, money values from 1 to 100."
         },
         {
           role: "user",
@@ -125,10 +131,16 @@ async function analyzeWithGroqBrowser(items, settings) {
   const parsed = JSON.parse(extractJson(rawContent));
   return parsed.map((item) => ({
     id: item.id,
+    translatedTitle: cleanText(item.translatedTitle || ""),
+    translatedSummary: cleanText(item.translatedSummary || item.summary || ""),
     summary: item.summary || item.opportunity || "Summary unavailable.",
     opportunity: item.opportunity || "",
     audience: item.audience || "",
     weekendMvp: item.weekendMvp || "",
+    useCases: normalizeStringArray(item.useCases),
+    whyNow: cleanText(item.whyNow || ""),
+    risks: normalizeStringArray(item.risks),
+    ignoreSignals: normalizeStringArray(item.ignoreSignals),
     scores: normalizeScores(item.scores)
   }));
 }
@@ -164,9 +176,7 @@ async function fetchBrowserDiscover(activeSources, settings) {
   }
 
   return {
-    items: items
-      .sort((left, right) => (right.scores?.trend || 0) - (left.scores?.trend || 0))
-      .slice(0, settings.automation.maxItems),
+    items,
     sourceHealth
   };
 }
@@ -280,6 +290,9 @@ function extractJson(content) {
 function normalizeServerItems(items) {
   return items.map((item) => ({
     ...item,
+    name: cleanText(item.name || ""),
+    desc: compactDescription(item.desc || ""),
+    rawDesc: cleanText(item.rawDesc || item.desc || ""),
     sourceName: sourceLabel(item.source),
     aiSummary: item.aiSummary || ""
   }));
@@ -321,12 +334,13 @@ function clampScore(value) {
 }
 
 function normalizeGitHubRepo(repo) {
-  const text = `${repo.name} ${repo.description || ""}`;
+  const text = cleanText(`${repo.name} ${repo.description || ""}`);
   return {
     id: `github:${repo.full_name}`,
-    name: repo.name,
+    name: cleanText(repo.name),
     owner: repo.owner?.login || "GitHub",
-    desc: repo.description || "No description provided.",
+    desc: compactDescription(repo.description || "No description provided."),
+    rawDesc: cleanText(repo.description || "No description provided."),
     source: "github",
     sourceName: "GitHub",
     url: repo.html_url,
@@ -341,12 +355,13 @@ function normalizeGitHubRepo(repo) {
 }
 
 function normalizeHnStory(hit) {
-  const text = `${hit.title || ""} ${hit.story_text || ""}`;
+  const text = cleanText(`${hit.title || ""} ${hit.story_text || ""}`);
   return {
     id: `hn:${hit.objectID}`,
-    name: hit.title || "Untitled HN post",
+    name: cleanText(hit.title || "Untitled HN post"),
     owner: hit.author || "Hacker News",
-    desc: hit.story_text || "Trending Hacker News discussion.",
+    desc: compactDescription(hit.story_text || "Trending Hacker News discussion."),
+    rawDesc: cleanText(hit.story_text || "Trending Hacker News discussion."),
     source: "hn",
     sourceName: "Hacker News",
     url: hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`,
@@ -362,12 +377,13 @@ function normalizeHnStory(hit) {
 
 function normalizeRedditPost(post, subreddit) {
   const data = post.data || {};
-  const text = `${data.title || ""} ${data.selftext || ""}`;
+  const text = cleanText(`${data.title || ""} ${data.selftext || ""}`);
   return {
     id: `reddit:${data.subreddit || subreddit}:${data.id}`,
-    name: data.title || "Untitled Reddit post",
+    name: cleanText(data.title || "Untitled Reddit post"),
     owner: `r/${data.subreddit || subreddit}`,
-    desc: data.selftext?.slice(0, 220) || "Trending Reddit thread.",
+    desc: compactDescription(data.selftext || "Trending Reddit thread."),
+    rawDesc: cleanText(data.selftext || "Trending Reddit thread."),
     source: "reddit",
     sourceName: "Reddit",
     url: data.url_overridden_by_dest || `https://www.reddit.com${data.permalink}`,
@@ -382,12 +398,13 @@ function normalizeRedditPost(post, subreddit) {
 }
 
 function normalizeDevtoArticle(article) {
-  const text = `${article.title || ""} ${article.description || ""}`;
+  const text = cleanText(`${article.title || ""} ${article.description || ""}`);
   return {
     id: `devto:${article.id}`,
-    name: article.title || "Untitled article",
+    name: cleanText(article.title || "Untitled article"),
     owner: article.user?.name || "Dev.to",
-    desc: article.description || "Developer article from Dev.to.",
+    desc: compactDescription(article.description || "Developer article from Dev.to."),
+    rawDesc: cleanText(article.description || "Developer article from Dev.to."),
     source: "devto",
     sourceName: "Dev.to",
     url: article.url,
@@ -403,12 +420,13 @@ function normalizeDevtoArticle(article) {
 
 function normalizeNpmPackage(entry) {
   const pkg = entry.package || {};
-  const text = `${pkg.name || ""} ${pkg.description || ""} ${(pkg.keywords || []).join(" ")}`;
+  const text = cleanText(`${pkg.name || ""} ${pkg.description || ""} ${(pkg.keywords || []).join(" ")}`);
   return {
     id: `npm:${pkg.name}`,
-    name: pkg.name || "Untitled package",
+    name: cleanText(pkg.name || "Untitled package"),
     owner: pkg.publisher?.username || "npm",
-    desc: pkg.description || "npm package.",
+    desc: compactDescription(pkg.description || "npm package."),
+    rawDesc: cleanText(pkg.description || "npm package."),
     source: "npm",
     sourceName: "npm",
     url: pkg.links?.npm || `https://www.npmjs.com/package/${pkg.name}`,
@@ -423,12 +441,13 @@ function normalizeNpmPackage(entry) {
 }
 
 function normalizeProductHuntPost(node) {
-  const text = `${node.name || ""} ${node.tagline || ""}`;
+  const text = cleanText(`${node.name || ""} ${node.tagline || ""}`);
   return {
     id: `producthunt:${node.id}`,
-    name: node.name || "Untitled Product Hunt post",
+    name: cleanText(node.name || "Untitled Product Hunt post"),
     owner: "Product Hunt",
-    desc: node.tagline || "Product Hunt launch.",
+    desc: compactDescription(node.tagline || "Product Hunt launch."),
+    rawDesc: cleanText(node.tagline || "Product Hunt launch."),
     source: "producthunt",
     sourceName: "Product Hunt",
     url: node.url || node.website || "https://www.producthunt.com",
@@ -443,7 +462,10 @@ function normalizeProductHuntPost(node) {
 }
 
 function inferLanguage(text) {
-  const value = text.toLowerCase();
+  const value = cleanText(text).toLowerCase();
+  if (/[\u4e00-\u9fff]/.test(text)) return "Chinese";
+  if (/[\u3040-\u30ff]/.test(text)) return "Japanese";
+  if (/[\uac00-\ud7af]/.test(text)) return "Korean";
   if (value.includes("rust")) return "Rust";
   if (value.includes("typescript")) return "TypeScript";
   if (value.includes("python")) return "Python";
@@ -451,4 +473,67 @@ function inferLanguage(text) {
   if (value.includes("zig")) return "Zig";
   if (value.includes("javascript")) return "JavaScript";
   return "Mixed";
+}
+
+function rankAndFilterItems(items, settings) {
+  const catalogMap = getCatalogMap();
+  const saved = getSavedSet();
+  const ignored = getIgnoredSet();
+  const profile = buildPreferenceProfile(catalogMap, saved, ignored);
+
+  return items
+    .map((item) => {
+      const preferenceScore = preferenceScoreForItem(item, profile);
+      const isNew = !catalogMap[item.id];
+      return {
+        ...item,
+        preferenceScore,
+        isNew,
+        rawDesc: cleanText(item.rawDesc || item.desc || ""),
+        desc: compactDescription(item.desc || item.rawDesc || "")
+      };
+    })
+    .filter((item) => !ignored.has(item.id))
+    .filter((item) => item.preferenceScore > -12)
+    .sort((left, right) => rankValue(right) - rankValue(left))
+    .slice(0, settings.automation.maxItems);
+}
+
+function rankValue(item) {
+  return (
+    (item.scores?.trend || 0) * 1.2 +
+    (item.scores?.money || 0) * 0.55 +
+    (item.preferenceScore || 0) +
+    (item.isNew ? 9 : 0)
+  );
+}
+
+function compactDescription(value) {
+  const cleaned = cleanText(value);
+  return truncateAtWord(cleaned || "No description provided.", 180);
+}
+
+function cleanText(value) {
+  return String(value || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/&[#a-z0-9]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateAtWord(value, limit) {
+  const trimmed = String(value || "").trim();
+  if (trimmed.length <= limit) return trimmed;
+  const slice = trimmed.slice(0, limit);
+  const lastSpace = slice.lastIndexOf(" ");
+  return `${slice.slice(0, lastSpace > 80 ? lastSpace : limit).trim()}...`;
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => cleanText(entry))
+    .filter(Boolean)
+    .slice(0, 6);
 }

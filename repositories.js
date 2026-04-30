@@ -1,13 +1,14 @@
 import {
-  formatTime,
   getAnalyses,
   getCatalogMap,
+  getIgnoredSet,
   getLatestSnapshot,
   getQueuedSet,
   getSavedSet,
   getSettings,
   mergeAnalysesIntoItems,
   setAnalyses,
+  setIgnoredSet,
   setLatestSnapshot,
   setQueuedSet,
   setSavedSet,
@@ -25,6 +26,7 @@ const state = {
   settings: getSettings(),
   items: [],
   saved: getSavedSet(),
+  ignored: getIgnoredSet(),
   queued: getQueuedSet(),
   analyses: getAnalyses(),
   view: "all",
@@ -118,6 +120,7 @@ function visibleItems() {
   const catalog = getCatalogMap();
   return state.items
     .filter(item => {
+      if (state.ignored.has(item.id)) return false;
       if (state.chip === "all") return true;
       if (state.chip === "saved") return state.saved.has(item.id);
       if (state.chip === "money") return (item.scores?.money || 0) >= 72;
@@ -144,12 +147,13 @@ function render() {
   items.forEach(item => {
     const node = els.cardTemplate.content.firstElementChild.cloneNode(true);
     const isSaved = state.saved.has(item.id);
+    const isIgnored = state.ignored.has(item.id);
 
     node.querySelector(".source-pill").textContent = sourceLabel(item.source);
     node.querySelector(".metric-pill").textContent = `${item.metricLabel}: ${item.metricValue}`;
-    node.querySelector(".repo-name").textContent = item.name;
+    node.querySelector(".repo-name").textContent = displayTitle(item);
     node.querySelector(".repo-owner").textContent = `${item.owner || "Unknown"} · ${item.language || "Mixed"}`;
-    node.querySelector(".repo-desc").textContent = item.desc;
+    node.querySelector(".repo-desc").textContent = displayCardSummary(item);
 
     const tagRow = node.querySelector(".tag-row");
     if (item.matchesWatchlist) {
@@ -182,6 +186,15 @@ function render() {
       render();
     });
 
+    const ignoreBtn = node.querySelector(".ignore-btn");
+    ignoreBtn.classList.toggle("btn-strong", isIgnored);
+    ignoreBtn.textContent = isIgnored ? "Ignored" : "Ignore";
+    ignoreBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleSetMembership(state.ignored, item.id, setIgnoredSet);
+      render();
+    });
+
     node.querySelector(".analyze-btn").addEventListener("click", async (e) => {
       e.stopPropagation();
       const btn = e.target;
@@ -211,71 +224,26 @@ function render() {
       window.open(item.url, "_blank", "noopener,noreferrer");
     });
 
-    // Modal on card click
-    node.addEventListener("click", () => showModal(item));
+    node.addEventListener("click", () => {
+      window.location.href = `/repo.html?id=${encodeURIComponent(item.id)}`;
+    });
 
     els.repoGrid.appendChild(node);
   });
-}
-
-function showModal(item) {
-  const isSaved = state.saved.has(item.id);
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <button class="close-modal">&times;</button>
-      <div class="card-top">
-        <span class="source-pill">${sourceLabel(item.source)}</span>
-        <span class="metric-pill">${item.metricLabel}: ${item.metricValue}</span>
-      </div>
-      <h2 class="repo-name" style="margin-top: 1rem;">${item.name}</h2>
-      <p class="repo-owner" style="margin-bottom: 1.5rem;">${item.owner || "Unknown"} · ${item.language || "Mixed"}</p>
-
-      <p class="repo-desc" style="-webkit-line-clamp: unset; margin-bottom: 1.5rem;">${item.desc}</p>
-
-      <div class="tag-row" style="margin-bottom: 1.5rem;">
-        ${item.matchesWatchlist ? `<span class="tag" style="background: var(--brand-soft); color: var(--brand);">watchlist</span>` : ""}
-        ${(item.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
-      </div>
-
-      <div class="panel" style="background: var(--brand-soft); border-color: var(--brand); margin-bottom: 1.5rem;">
-        <p class="panel-kicker" style="color: var(--brand);">AI Analysis</p>
-        <p style="font-size: 0.9rem; line-height: 1.6;">${item.aiSummary || "AI summary not available. Tap 'Analyze' to generate one."}</p>
-      </div>
-
-      <div class="score-row" style="margin-bottom: 2rem;">
-        <span class="score-pill">Trend ${Math.round(item.scores?.trend || 0)}</span>
-        <span class="score-pill">Learn ${Math.round(item.scores?.learn || 0)}</span>
-        <span class="score-pill">Money ${Math.round(item.scores?.money || 0)}</span>
-      </div>
-
-      <div style="display: flex; gap: 1rem;">
-        <button class="btn ${isSaved ? 'btn-strong' : ''}" id="modalSave" style="flex: 1;">${isSaved ? 'Saved' : 'Save Repository'}</button>
-        <button class="btn btn-strong" id="modalOpen" style="flex: 1;">Open on GitHub</button>
-      </div>
-    </div>
-  `;
-
-  overlay.querySelector(".close-modal").onclick = () => overlay.remove();
-  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-  overlay.querySelector("#modalSave").onclick = () => {
-    toggleSetMembership(state.saved, item.id, setSavedSet);
-    overlay.remove();
-    render();
-  };
-  overlay.querySelector("#modalOpen").onclick = () => {
-    window.open(item.url, "_blank", "noopener,noreferrer");
-  };
-
-  els.modalHost.appendChild(overlay);
 }
 
 function toggleSetMembership(set, id, persist) {
   if (set.has(id)) set.delete(id);
   else set.add(id);
   persist(set);
+}
+
+function displayTitle(item) {
+  return item.translatedTitle || item.name;
+}
+
+function displayCardSummary(item) {
+  return item.translatedSummary || item.aiSummary || item.desc || "No description available.";
 }
 
 function compareItems(a, b, catalog) {

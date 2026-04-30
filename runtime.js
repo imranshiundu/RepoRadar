@@ -2,6 +2,7 @@ export const STORAGE_KEYS = {
   settings: "repo-radar.settings.v2",
   saved: "repo-radar.saved.v2",
   queued: "repo-radar.queued.v2",
+  ignored: "repo-radar.ignored.v1",
   analyses: "repo-radar.analyses.v2",
   latest: "repo-radar.latest.v2",
   catalog: "repo-radar.catalog.v2",
@@ -83,6 +84,14 @@ export function getQueuedSet() {
 
 export function setQueuedSet(set) {
   saveJson(STORAGE_KEYS.queued, [...set]);
+}
+
+export function getIgnoredSet() {
+  return new Set(loadJson(STORAGE_KEYS.ignored, []));
+}
+
+export function setIgnoredSet(set) {
+  saveJson(STORAGE_KEYS.ignored, [...set]);
 }
 
 export function getAnalyses() {
@@ -175,10 +184,16 @@ export function mergeAnalysesIntoItems(items, analyses) {
     if (!analysis) return item;
     return {
       ...item,
+      translatedTitle: analysis.translatedTitle || item.translatedTitle || "",
+      translatedSummary: analysis.translatedSummary || item.translatedSummary || "",
       aiSummary: analysis.summary || item.aiSummary || "",
       opportunity: analysis.opportunity || item.opportunity || "",
       audience: analysis.audience || item.audience || "",
       weekendMvp: analysis.weekendMvp || item.weekendMvp || "",
+      useCases: Array.isArray(analysis.useCases) ? analysis.useCases : (item.useCases || []),
+      whyNow: analysis.whyNow || item.whyNow || "",
+      risks: Array.isArray(analysis.risks) ? analysis.risks : (item.risks || []),
+      ignoreSignals: Array.isArray(analysis.ignoreSignals) ? analysis.ignoreSignals : (item.ignoreSignals || []),
       scores: analysis.scores || item.scores
     };
   });
@@ -296,3 +311,93 @@ export function parseKeywordList(value) {
     .map((part) => part.trim().toLowerCase())
     .filter(Boolean);
 }
+
+export function buildPreferenceProfile(catalogMap, savedSet, ignoredSet) {
+  const profile = {
+    sources: {},
+    languages: {},
+    tags: {},
+    tokens: {}
+  };
+
+  for (const id of savedSet) {
+    const item = catalogMap[id];
+    if (!item) continue;
+    applyPreferenceItem(profile, item, 1);
+  }
+
+  for (const id of ignoredSet) {
+    const item = catalogMap[id];
+    if (!item) continue;
+    applyPreferenceItem(profile, item, -1);
+  }
+
+  return profile;
+}
+
+export function preferenceScoreForItem(item, profile) {
+  const tags = item.tags || [];
+  const tokens = tokenizePreferenceText(`${item.name || ""} ${item.desc || ""} ${tags.join(" ")}`);
+  let score = 0;
+
+  score += lookupPreference(profile.sources, item.source) * 2.2;
+  score += lookupPreference(profile.languages, item.language) * 1.5;
+  score += tags.reduce((sum, tag) => sum + lookupPreference(profile.tags, tag), 0) * 1.1;
+  score += tokens.reduce((sum, token) => sum + lookupPreference(profile.tokens, token), 0) * 0.22;
+
+  return Math.max(-30, Math.min(30, Math.round(score)));
+}
+
+function applyPreferenceItem(profile, item, direction) {
+  bumpPreference(profile.sources, item.source, 2 * direction);
+  bumpPreference(profile.languages, item.language, 1.5 * direction);
+  for (const tag of item.tags || []) {
+    bumpPreference(profile.tags, tag, 2.4 * direction);
+  }
+  for (const token of tokenizePreferenceText(`${item.name || ""} ${item.desc || ""} ${(item.tags || []).join(" ")}`)) {
+    bumpPreference(profile.tokens, token, 1 * direction);
+  }
+}
+
+function bumpPreference(bucket, key, delta) {
+  if (!key) return;
+  const normalized = String(key).trim().toLowerCase();
+  if (!normalized) return;
+  bucket[normalized] = (bucket[normalized] || 0) + delta;
+}
+
+function lookupPreference(bucket, key) {
+  if (!key) return 0;
+  return bucket[String(key).trim().toLowerCase()] || 0;
+}
+
+function tokenizePreferenceText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 4 && !STOP_WORDS.has(token))
+    .slice(0, 20);
+}
+
+const STOP_WORDS = new Set([
+  "this",
+  "that",
+  "with",
+  "from",
+  "have",
+  "your",
+  "about",
+  "there",
+  "their",
+  "build",
+  "built",
+  "using",
+  "into",
+  "project",
+  "projects",
+  "developer",
+  "developers",
+  "repository",
+  "repositories"
+]);
