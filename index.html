@@ -1,242 +1,196 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Repo Radar — Developer intelligence dashboard showing trending repositories from GitHub, Reddit, Hacker News and more, with AI-powered monetization scoring.">
-    <title>Repo Radar | Developer Intelligence Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RepoRadar</title>
+  <meta name="description"
+    content="Track trending repos and developer projects across GitHub, Hacker News, Reddit, and Product Hunt.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
 </head>
+
 <body>
+  <header class="topbar">
+    <div class="brand">
 
-<h2 class="sr-only">Repo Radar — Developer intelligence dashboard showing trending repositories from GitHub, Reddit, Hacker News and more, with AI-powered monetization scoring</h2>
+      <div>
+        <div class="brand-name">RepoRadar</div>
+        <p class="brand-copy">Developer discovery with local caching and AI analysis</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="status-pill" id="syncStatus">Waiting for first sync</div>
+      <button class="btn" id="configToggle" type="button">Settings</button>
+      <button class="btn btn-strong" id="refreshBtn" type="button">Refresh</button>
+    </div>
+  </header>
 
-<div class="topbar">
-  <div class="logo">
-    <div class="logo-icon"><i data-lucide="hexagon"></i></div>
-    REPO<span>RADAR</span>
-  </div>
-  <div class="topbar-actions">
-    <div class="badge-live"><div class="live-dot"></div> LIVE FEED</div>
-    <button class="btn" onclick="toggleConfig()"><i data-lucide="settings"></i> Config</button>
-    <button class="btn btn-accent" onclick="triggerRefresh()"><i data-lucide="refresh-cw"></i> Refresh</button>
-  </div>
-</div>
+  <section class="config-panel" id="configPanel" hidden>
+    <div class="config-grid">
+      <article class="config-card">
+        <h2>Deployment</h2>
+        <p class="config-copy">
+          Secrets now live on the server through <code>.env</code>. This is safe on Vercel or local Node.
+          GitHub Pages can host the UI, but not the protected Groq proxy.
+        </p>
+        <dl class="meta-list">
+          <div>
+            <dt>AI status</dt>
+            <dd id="aiStatus">Checking server config...</dd>
+          </div>
+          <div>
+            <dt>Last cache</dt>
+            <dd id="cacheStatus">No cache yet</dd>
+          </div>
+          <div>
+            <dt>Background</dt>
+            <dd id="backgroundStatus">Best effort only</dd>
+          </div>
+        </dl>
+      </article>
 
-<div id="configArea" class="config-area">
-  <div class="api-banner">
-    <span><i data-lucide="zap"></i> Groq API Key</span>
-    <input type="password" id="groqKey" placeholder="gsk_xxxx... (stored locally, never sent anywhere)" />
-    <button class="btn btn-accent" onclick="saveKey()">Save</button>
-  </div>
-  <div class="config-grid">
-    <div class="config-card">
-      <h4><i data-lucide="rss"></i> Data Sources</h4>
-      <div class="toggle-row">GitHub Trending <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Hacker News <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">r/programming <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">r/SideProject <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">r/MachineLearning <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Product Hunt <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Dev.to <div class="toggle" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">npm Trending <div class="toggle" onclick="this.classList.toggle('on')"></div></div>
-    </div>
-    <div class="config-card">
-      <h4><i data-lucide="bot"></i> AI Analysis</h4>
-      <div class="toggle-row">Auto-summarize repos <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Monetize scoring <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Tech stack detection <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">SaaS opportunity flag <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Similar paid products <div class="toggle" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Weekly digest email <div class="toggle" onclick="this.classList.toggle('on')"></div></div>
-      <span class="input-label">Groq model</span>
-      <select class="input-field">
-        <option>llama-3.3-70b-versatile (fastest)</option>
-        <option>mixtral-8x7b-32768</option>
-        <option>gemma2-9b-it</option>
-      </select>
-      <span class="input-label">Interests (comma separated)</span>
-      <input class="input-field" value="AI, SaaS, automation, dev tools, CLI" />
-    </div>
-    <div class="config-card">
-      <h4><i data-lucide="folder-kanban"></i> Smart Folders</h4>
-      <div class="toggle-row">Auto-categorize repos <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">AI Tools folder <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Monetizable folder <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">SaaS Starters folder <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Ship This Weekend <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    </div>
-    <div class="config-card">
-      <h4><i data-lucide="bell"></i> Alerts</h4>
-      <div class="toggle-row">Star milestone alerts <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">New Show HN drops <div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-      <div class="toggle-row">Language trending <div class="toggle" onclick="this.classList.toggle('on')"></div></div>
-      <span class="input-label">GitHub token (5000 req/hr)</span>
-      <input class="input-field" type="password" placeholder="ghp_xxxx..." />
-    </div>
-  </div>
-</div>
+      <article class="config-card">
+        <h2>Sources</h2>
+        <label class="switch-row"><span>GitHub</span><input type="checkbox" data-source="github" checked></label>
+        <label class="switch-row"><span>Hacker News</span><input type="checkbox" data-source="hn" checked></label>
+        <label class="switch-row"><span>Reddit</span><input type="checkbox" data-source="reddit" checked></label>
+        <label class="switch-row"><span>Product Hunt</span><input type="checkbox" data-source="producthunt"></label>
+      </article>
 
-<div class="layout">
-  <div class="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-label">Discover</div>
-      <div class="sidebar-item active" onclick="setView('trending',this)">
-        <span class="sidebar-icon"><i data-lucide="flame"></i></span> Trending Now <span class="count">48</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('personalized',this)">
-        <span class="sidebar-icon"><i data-lucide="sparkles"></i></span> For You <span class="count">23</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('monetize',this)">
-        <span class="sidebar-icon"><i data-lucide="dollar-sign"></i></span> Monetizable <span class="count">12</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('ship',this)">
-        <span class="sidebar-icon"><i data-lucide="rocket"></i></span> Ship This Weekend <span class="count">7</span>
-      </div>
+      <article class="config-card">
+        <h2>Automation</h2>
+        <label class="switch-row"><span>Auto analyze top cards</span><input id="autoAnalyzeToggle" type="checkbox"
+            checked></label>
+        <label class="switch-row"><span>Refresh while tab is open</span><input id="autoRefreshToggle" type="checkbox"
+            checked></label>
+        <label class="switch-row"><span>Register service worker</span><input id="offlineToggle" type="checkbox"
+            checked></label>
+        <p class="config-copy">
+          Browsers usually cannot keep a site working after the browser is fully closed.
+          I added offline caching and periodic background sync where the browser supports it.
+        </p>
+      </article>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">Smart Folders</div>
-      <div class="sidebar-item" onclick="setView('ai',this)">
-        <span class="sidebar-icon"><i data-lucide="bot"></i></span> AI + LLM Tools <span class="count">19</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('saas',this)">
-        <span class="sidebar-icon"><i data-lucide="cloud"></i></span> SaaS Starters <span class="count">11</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('cli',this)">
-        <span class="sidebar-icon"><i data-lucide="keyboard"></i></span> CLI Wizardry <span class="count">8</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('data',this)">
-        <span class="sidebar-icon"><i data-lucide="bar-chart-3"></i></span> Data + APIs <span class="count">14</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('web',this)">
-        <span class="sidebar-icon"><i data-lucide="layers"></i></span> Web Dev <span class="count">16</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('curious',this)">
-        <span class="sidebar-icon"><i data-lucide="hexagon"></i></span> Just Curious <span class="count">31</span>
-      </div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">Sources</div>
-      <div class="sidebar-item" onclick="setView('github',this)">
-        <span class="sidebar-icon"><i data-lucide="github"></i></span> GitHub <span class="count">28</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('reddit',this)">
-        <span class="sidebar-icon"><i data-lucide="circle"></i></span> Reddit <span class="count">13</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('hn',this)">
-        <span class="sidebar-icon"><i data-lucide="triangle"></i></span> Hacker News <span class="count">9</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('ph',this)">
-        <span class="sidebar-icon"><i data-lucide="diamond"></i></span> Product Hunt <span class="count">6</span>
-      </div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">My Library</div>
-      <div class="sidebar-item" onclick="setView('saved',this)">
-        <span class="sidebar-icon"><i data-lucide="bookmark"></i></span> Saved <span class="count" id="savedCount">0</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('queue',this)">
-        <span class="sidebar-icon"><i data-lucide="list"></i></span> Reading Queue <span class="count">4</span>
-      </div>
-      <div class="sidebar-item" onclick="setView('notes',this)">
-        <span class="sidebar-icon"><i data-lucide="pencil"></i></span> My Notes <span class="count">2</span>
-      </div>
-    </div>
-  </div>
+  </section>
 
-  <div class="main" id="mainArea">
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--accent)">2,847</div>
-        <div class="stat-label">REPOS INDEXED TODAY</div>
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-block">
+        <div class="sidebar-label">Views</div>
+        <button class="sidebar-item active" data-view="all" type="button">All live items <span
+            id="allCount">0</span></button>
+        <button class="sidebar-item" data-view="monetizable" type="button">Monetizable <span
+            id="moneyCount">0</span></button>
+        <button class="sidebar-item" data-view="saved" type="button">Saved <span id="savedCount">0</span></button>
+        <button class="sidebar-item" data-view="ai" type="button">AI / LLM <span id="aiCount">0</span></button>
       </div>
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--accent2)">+12</div>
-        <div class="stat-label">NEW SINCE LAST VISIT</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--accent3)">5</div>
-        <div class="stat-label">MONETIZE OPPORTUNITIES</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--accent4)">3</div>
-        <div class="stat-label">SHOW HN TODAY</div>
-      </div>
-    </div>
 
-    <div class="filters-bar">
-      <div class="filter-chip on" onclick="toggleFilter(this)">All</div>
-      <div class="filter-chip" onclick="toggleFilter(this)">Python</div>
-      <div class="filter-chip" onclick="toggleFilter(this)">TypeScript</div>
-      <div class="filter-chip" onclick="toggleFilter(this)">Rust</div>
-      <div class="filter-chip" onclick="toggleFilter(this)">Go</div>
-      <div class="filter-chip on green" onclick="toggleFilter(this)"><i data-lucide="dollar-sign"></i> Monetizable</div>
-      <div class="filter-chip on gold" onclick="toggleFilter(this)"><i data-lucide="flame"></i> Viral</div>
-      <div class="filter-chip" onclick="toggleFilter(this)"><i data-lucide="bot"></i> AI/ML</div>
-      <div class="filter-chip" onclick="toggleFilter(this)"><i data-lucide="terminal"></i> CLI</div>
-      <input class="search-box" placeholder="Search repos, tags, ideas..." />
-    </div>
-
-    <div class="folder-tabs">
-      <div class="folder-tab active"><i data-lucide="flame"></i> All Trending</div>
-      <div class="folder-tab"><i data-lucide="sparkles"></i> Personalized</div>
-      <div class="folder-tab"><i data-lucide="dollar-sign"></i> Monetizable</div>
-      <div class="folder-tab"><i data-lucide="rocket"></i> Ship Weekend</div>
-      <div class="folder-tab"><i data-lucide="bot"></i> AI Tools</div>
-      <div class="folder-tab"><i data-lucide="plus"></i> New Folder</div>
-    </div>
-
-    <div id="repoGrid" class="repo-grid"></div>
-  </div>
-
-  <div class="right-panel">
-    <div class="panel-section">
-      <div class="panel-title"><i data-lucide="trending-up"></i> Top Trending</div>
-      <div id="trendingList"></div>
-    </div>
-
-    <div class="panel-section">
-      <div class="panel-title"><i data-lucide="pie-chart"></i> Languages This Week</div>
-      <div class="lang-bar">
-        <div class="lang-seg" style="width:32%;background:#3572A5"></div>
-        <div class="lang-seg" style="width:24%;background:#3178c6"></div>
-        <div class="lang-seg" style="width:18%;background:#DEA584"></div>
-        <div class="lang-seg" style="width:14%;background:#00ADD8"></div>
-        <div class="lang-seg" style="width:12%;background:#f1e05a"></div>
+      <div class="sidebar-block">
+        <div class="sidebar-label">Sources</div>
+        <button class="sidebar-item" data-view="github" type="button">GitHub</button>
+        <button class="sidebar-item" data-view="hn" type="button">Hacker News</button>
+        <button class="sidebar-item" data-view="reddit" type="button">Reddit</button>
+        <button class="sidebar-item" data-view="producthunt" type="button">Product Hunt</button>
       </div>
-      <div class="lang-legend">
-        <div class="lang-item"><div class="lang-dot" style="background:#3572A5"></div>Python 32%</div>
-        <div class="lang-item"><div class="lang-dot" style="background:#3178c6"></div>TypeScript 24%</div>
-        <div class="lang-item"><div class="lang-dot" style="background:#DEA584"></div>Rust 18%</div>
-        <div class="lang-item"><div class="lang-dot" style="background:#00ADD8"></div>Go 14%</div>
-        <div class="lang-item"><div class="lang-dot" style="background:#f1e05a"></div>JS 12%</div>
-      </div>
-    </div>
+    </aside>
 
-    <div class="panel-section">
-      <div class="panel-title"><i data-lucide="zap"></i> Live Alerts</div>
-      <div class="alert-item">
-        <div><strong style="color:var(--accent)">shadcn/ui</strong> just crossed 90k stars</div>
-        <div class="alert-time">2 min ago</div>
-      </div>
-      <div class="alert-item gold">
-        <div><strong style="color:var(--accent3)">Show HN:</strong> I built a Stripe-clone in Go — 847 pts</div>
-        <div class="alert-time">14 min ago</div>
-      </div>
-      <div class="alert-item red">
-        <div><strong style="color:var(--accent4)">Viral:</strong> r/programming — "This Rust crate is insane" 4.2k upvotes</div>
-        <div class="alert-time">31 min ago</div>
-      </div>
-      <div class="alert-item">
-        <div><strong style="color:var(--accent)">Python</strong> trending ↑ 40% this week on GitHub</div>
-        <div class="alert-time">1 hr ago</div>
-      </div>
-    </div>
-  </div>
-</div>
+    <section class="main-panel">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Live discovery</p>
+          <h1>Trending developer projects with cached AI notes</h1>
+          <p class="hero-copy">
+            Fresh results come from public APIs, summaries are cached in your browser, and saves stay local to this
+            device.
+          </p>
+        </div>
+        <div class="hero-note">
+          <strong>Storage mode</strong>
+          <span>Repos, saved items, and AI summaries are stored in localStorage after first load.</span>
+        </div>
+      </section>
 
-<script src="script.js"></script>
+      <section class="stats" id="statsRow">
+        <article class="stat-card"><span class="stat-value" id="statItems">0</span><span class="stat-label">Items
+            loaded</span></article>
+        <article class="stat-card"><span class="stat-value" id="statSources">0</span><span class="stat-label">Active
+            sources</span></article>
+        <article class="stat-card"><span class="stat-value" id="statAnalyzed">0</span><span class="stat-label">AI
+            summaries</span></article>
+        <article class="stat-card"><span class="stat-value" id="statSaved">0</span><span class="stat-label">Saved
+            locally</span></article>
+      </section>
+
+      <section class="toolbar">
+        <div class="chip-row" id="chipRow">
+          <button class="chip chip-on" data-chip="all" type="button">All</button>
+          <button class="chip" data-chip="money" type="button">Money</button>
+          <button class="chip" data-chip="ai" type="button">AI</button>
+          <button class="chip" data-chip="saas" type="button">SaaS</button>
+          <button class="chip" data-chip="cli" type="button">CLI</button>
+        </div>
+        <input class="search-input" id="searchInput" type="search"
+          placeholder="Search repos, posts, tags, summaries...">
+      </section>
+
+      <section class="grid" id="repoGrid" aria-live="polite"></section>
+    </section>
+
+    <aside class="right-rail">
+      <section class="rail-card">
+        <div class="rail-title">Top movers</div>
+        <div id="trendingList" class="stack-list"></div>
+      </section>
+
+      <section class="rail-card">
+        <div class="rail-title">Local-first notes</div>
+        <ul class="hint-list">
+          <li>Saved cards stay in this browser using <code>localStorage</code>.</li>
+          <li>AI summaries are cached per item so refreshes stay fast.</li>
+          <li>Offline assets are cached by a service worker when supported.</li>
+        </ul>
+      </section>
+
+      <section class="rail-card">
+        <div class="rail-title">Background reality</div>
+        <p class="rail-copy">
+          Background refresh can work for installed PWAs in some browsers, but not reliably after the browser is fully
+          closed.
+          For always-on sync later, we should add a hosted database plus scheduled jobs.
+        </p>
+      </section>
+    </aside>
+  </main>
+
+  <template id="cardTemplate">
+    <article class="repo-card">
+      <div class="card-top">
+        <span class="source-badge"></span>
+        <span class="score-badge"></span>
+      </div>
+      <h2 class="repo-name"></h2>
+      <p class="repo-owner"></p>
+      <p class="repo-desc"></p>
+      <div class="tag-row"></div>
+      <div class="analysis-box"></div>
+      <div class="meter-row"></div>
+      <div class="repo-meta"></div>
+      <div class="action-row">
+        <button class="action-btn save-btn" type="button"></button>
+        <button class="action-btn visit-btn" type="button">Open</button>
+        <button class="action-btn analyze-btn" type="button">Analyze</button>
+      </div>
+    </article>
+  </template>
+
+  <script type="module" src="/app.js"></script>
 </body>
+
 </html>

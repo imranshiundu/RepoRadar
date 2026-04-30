@@ -1,0 +1,10 @@
+{
+  "name": "RepoRadar",
+  "short_name": "RepoRadar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ee",
+  "theme_color": "#bb4c1f",
+  "description": "Track trending developer repos and projects with local caching.",
+  "icons": []
+}
